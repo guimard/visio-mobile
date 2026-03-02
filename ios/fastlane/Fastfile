@@ -23,13 +23,29 @@ platform :ios do
       xcodeproj: "VisioMobile.xcodeproj"
     )
 
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "VisioMobile.xcodeproj",
+      team_id: ENV["APPLE_TEAM_ID"],
+      bundle_identifier: "io.visio.mobile",
+      profile_name: "match AppStore io.visio.mobile",
+      code_sign_identity: "iPhone Distribution"
+    )
+
     gym(
       scheme: "VisioMobile",
       project: "VisioMobile.xcodeproj",
       export_method: "app-store",
       output_directory: "build",
       output_name: "VisioMobile.ipa",
-      clean: true
+      clean: true,
+      export_options: {
+        teamID: ENV["APPLE_TEAM_ID"],
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "io.visio.mobile" => "match AppStore io.visio.mobile"
+        }
+      }
     )
 
     pilot(
