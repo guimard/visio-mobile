@@ -384,6 +384,16 @@ fn set_theme(state: tauri::State<'_, VisioState>, theme: String) {
 }
 
 #[tauri::command]
+fn get_meet_instances(state: tauri::State<'_, VisioState>) -> Result<Vec<String>, String> {
+    Ok(state.settings.get_meet_instances())
+}
+
+#[tauri::command]
+fn set_meet_instances(state: tauri::State<'_, VisioState>, instances: Vec<String>) {
+    state.settings.set_meet_instances(instances);
+}
+
+#[tauri::command]
 async fn raise_hand(state: tauri::State<'_, VisioState>) -> Result<(), String> {
     tracing::info!("Tauri command: raise_hand");
     let room = state.room.lock().await;
@@ -507,6 +517,8 @@ pub fn run() {
             set_mic_enabled_on_join,
             set_camera_enabled_on_join,
             set_theme,
+            get_meet_instances,
+            set_meet_instances,
             raise_hand,
             lower_hand,
             is_hand_raised,
