@@ -913,6 +913,7 @@ function SettingsModal({
     cameraOnJoin: false,
     theme: "light",
   });
+  const [meetInstances, setMeetInstances] = useState<string[]>(["meet.numerique.gouv.fr"]);
 
   useEffect(() => {
     invoke<Settings>("get_settings")
@@ -926,6 +927,7 @@ function SettingsModal({
         }));
       })
       .catch(() => {});
+    invoke<string[]>("get_meet_instances").then(setMeetInstances).catch(() => {});
   }, []);
 
   const save = async () => {
@@ -1008,6 +1010,37 @@ function SettingsModal({
                 setForm({ ...form, cameraOnJoin: e.target.checked })
               }
             />
+          </div>
+          <div className="settings-section">
+            <label className="settings-label">{t("settings.meetInstances")}</label>
+            {meetInstances.map((inst, i) => (
+              <div key={i} className="instance-row">
+                <span>{inst}</span>
+                <button className="btn-icon" onClick={() => {
+                  const next = meetInstances.filter((_, j) => j !== i);
+                  setMeetInstances(next);
+                  invoke("set_meet_instances", { instances: next });
+                }}><RiCloseLine size={16} /></button>
+              </div>
+            ))}
+            <div className="instance-add-row">
+              <input
+                id="newInstance"
+                type="text"
+                placeholder={t("settings.instancePlaceholder")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const val = (e.target as HTMLInputElement).value.trim().toLowerCase();
+                    if (val && !meetInstances.includes(val)) {
+                      const next = [...meetInstances, val];
+                      setMeetInstances(next);
+                      invoke("set_meet_instances", { instances: next });
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
         <button className="settings-save" onClick={save}>
