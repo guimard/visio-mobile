@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var cameraOnJoin: Bool = false
     @State private var language: String = Strings.detectSystemLang()
     @State private var theme: String = "light"
+    @State private var meetInstances: [String] = ["meet.numerique.gouv.fr"]
+    @State private var newInstance: String = ""
 
     private var lang: String { manager.currentLang }
     private var isDark: Bool { manager.currentTheme == "dark" }
@@ -50,6 +52,38 @@ struct SettingsView: View {
                         manager.setLanguage(newLang)
                     }
                 }
+
+                Section(Strings.t("settings.meetInstances", lang: lang)) {
+                    ForEach(meetInstances, id: \.self) { instance in
+                        HStack {
+                            Text(instance)
+                            Spacer()
+                            Button {
+                                meetInstances.removeAll { $0 == instance }
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
+                    HStack {
+                        TextField(Strings.t("settings.instancePlaceholder", lang: lang), text: $newInstance)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                        Button {
+                            let trimmed = newInstance.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                            if !trimmed.isEmpty && !meetInstances.contains(trimmed) {
+                                meetInstances.append(trimmed)
+                                newInstance = ""
+                            }
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundStyle(VisioColors.primary500)
+                        }
+                        .disabled(newInstance.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(VisioColors.background(dark: isDark))
@@ -84,6 +118,7 @@ struct SettingsView: View {
         cameraOnJoin = settings.cameraEnabledOnJoin
         language = settings.language ?? Strings.detectSystemLang()
         theme = settings.theme ?? "light"
+        meetInstances = manager.client.getMeetInstances()
     }
 
     private func save() {
@@ -93,6 +128,7 @@ struct SettingsView: View {
         manager.setMicEnabledOnJoin(micOnJoin)
         manager.setCameraEnabledOnJoin(cameraOnJoin)
         manager.setLanguage(language)
+        manager.client.setMeetInstances(instances: meetInstances)
     }
 }
 
