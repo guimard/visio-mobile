@@ -29,6 +29,7 @@ Native video conferencing client for [La Suite Meet](https://meet.numerique.gouv
 │                  visio-core                      │
 │   RoomManager · AuthService · ChatService        │
 │   MeetingControls · ParticipantManager           │
+│   HandRaiseManager · SettingsStore               │
 ├──────────────────────────────────────────────────┤
 │                  visio-video                     │
 │   I420 renderer registry · platform renderers    │
@@ -39,7 +40,7 @@ Native video conferencing client for [La Suite Meet](https://meet.numerique.gouv
 
 **4 Rust crates:**
 
-- **`visio-core`** — Room lifecycle, auth (Meet API token fetch), chat (Stream API `lk.chat`), participants, media controls, hand raise (Meet interop), settings, event system
+- **`visio-core`** — Room lifecycle, auth (Meet API token fetch + room validation), chat (Stream API `lk.chat`), participants, media controls, hand raise (Meet interop), active speaker tracking, persistent settings, event system
 - **`visio-video`** — Video frame rendering: I420 decode, renderer registry, platform-specific renderers
 - **`visio-ffi`** — UniFFI `.udl` bindings (control plane) + raw C FFI (video/audio zero-copy)
 - **`visio-desktop`** — Tauri 2.x commands + cpal audio + AVFoundation camera capture (macOS)
@@ -109,7 +110,7 @@ Translations are stored as shared JSON files in the `i18n/` directory at the pro
 
 ```
 i18n/
-  en.json    # English (reference — 92 keys)
+  en.json    # English (reference — 96 keys)
   fr.json    # Français
   de.json    # Deutsch
   es.json    # Español
@@ -117,7 +118,7 @@ i18n/
   nl.json    # Nederlands
 ```
 
-**Adding a new language:** Create a new `i18n/<code>.json` file with all 92 keys translated. Then add the language code to `SUPPORTED_LANGS` (Desktop `App.tsx`), `supportedLangs` (Android `Strings.kt`, iOS `Strings.swift`).
+**Adding a new language:** Create a new `i18n/<code>.json` file with all 96 keys translated. Then add the language code to `SUPPORTED_LANGS` (Desktop `App.tsx`), `supportedLangs` (Android `Strings.kt`, iOS `Strings.swift`).
 
 **Adding a new key:** Add the key to all 6 JSON files. Use `t("key")` (Desktop), `Strings.t("key", lang)` (Android/iOS) in the UI code.
 
@@ -173,17 +174,36 @@ docs/plans/         Design docs and implementation plans
 - Info panel with meeting URL copy
 - Settings modal (display name, language, theme, join preferences)
 
-**Android UX:**
-- Material 3 dark/light theme with Meet color palette
-- Remixicon SVG vector drawables
-- Room URL validation with real-time status feedback
-- Participant list bottom sheet
+**Android UX (Meet-inspired):**
+- Material 3 dark/light theme with Meet color palette (`#161622` base)
+- Remixicon SVG vector drawables (14 icons)
+- Grouped control bar: mic+audio picker, cam+switch, hand raise (yellow highlight), chat with unread badge (9+), hangup
+- Audio device bottom sheet (speaker, earpiece, Bluetooth, USB headset, wired)
+- Adaptive video grid (1x2, 2x2) + tap-to-focus layout with horizontal filmstrip
+- Participant tiles with initials avatar (deterministic HSL color), active speaker glow, muted mic icon, hand raise badge with queue position, connection quality bars
+- Chat with message bubbles, sender grouping, timestamps, send icon, unread tracking
+- Participant list bottom sheet with live count
+- Picture-in-Picture support (active speaker only, mute/hangup controls via BroadcastReceiver)
+- Room URL validation with real-time status feedback (debounced Meet API check)
+- Settings screen (display name, language, mic/camera on join)
 - Edge-to-edge display support
+
+**iOS UX (Meet-inspired):**
+- Meet dark/light theme (VisioColors palette, Color hex init)
+- SF Symbols for all control bar icons (native iOS feel)
+- Grouped control bar: mic+audio route chevron, cam+switch, hand raise (yellow tint), chat with unread badge (9+), hangup
+- Audio device sheet with AVAudioSession port enumeration (speaker, earpiece, Bluetooth)
+- Adaptive video grid (LazyVGrid) + tap-to-focus layout with horizontal strip
+- Participant tiles with initials avatar (deterministic hue), active speaker glow, muted indicator, hand raise pill with queue position, connection quality bars
+- Chat view with message history, sender names, timestamps
+- Participant list bottom sheet
+- CallKit integration (system call UI, Dynamic Island, lock screen mute/hangup, phone call interruption auto-mute)
+- Picture-in-Picture with AVPictureInPictureController + AVSampleBufferDisplayLayer (auto-start on background)
+- Room URL validation with real-time debounced feedback
+- Settings view (display name, language, mic/camera on join)
 
 ## What's next
 
-- iOS UX overhaul (Phase 4 — SwiftUI controls, tiles, chat, CallKit, PiP)
-- Android UX overhaul (Phase 3 — control bar, tiles, chat, PiP)
 - Physical device testing (iOS camera, Android edge cases)
 - Push notifications
 - ProConnect authentication
