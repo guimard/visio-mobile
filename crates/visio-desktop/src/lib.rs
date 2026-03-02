@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock};
 use tokio::sync::Mutex;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Listener};
 use visio_core::{
     ChatService, MeetingControls, RoomManager, SettingsStore, TrackInfo, TrackKind, VisioEvent,
     VisioEventListener,
@@ -498,6 +498,12 @@ pub fn run() {
             }
 
             tracing::info!("Visio desktop app started, video callback registered");
+
+            // Log deep link events on the Rust side
+            app.listen("deep-link://new-url", |event: tauri::Event| {
+                tracing::info!("Deep link received (Rust): {:?}", event.payload());
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
