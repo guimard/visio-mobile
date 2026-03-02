@@ -43,3 +43,7 @@ android/app/src/main/assets/i18n/
 
 # AI assistant context
 CLAUDE.md
+
+# Ruby / Fastlane
+vendor/bundle/
+Gemfile.lock
