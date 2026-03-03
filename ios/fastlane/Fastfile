@@ -45,8 +45,8 @@ platform :ios do
     pilot(
       api_key: api_key,
       ipa: "build/VisioMobile.ipa",
-      skip_waiting_for_build_processing: true,
-      distribute_external: false,
+      distribute_external: true,
+      groups: ["Beta Testers"],
       changelog: ENV["RELEASE_NOTES"].to_s.empty? ? "Build #{ENV['GITHUB_RUN_NUMBER'] || 'local'} — #{`git log -1 --pretty=%s`.strip}" : ENV["RELEASE_NOTES"]
     )
   end
