@@ -121,6 +121,12 @@ object VisioManager : VisioEventListener {
         cameraCapture = null
     }
 
+    fun switchCamera(useFront: Boolean) {
+        cameraCapture?.switchCamera(useFront)
+    }
+
+    fun isFrontCamera(): Boolean = cameraCapture?.isFront() ?: true
+
     /**
      * Start AudioRecord capture. Call after setMicrophoneEnabled(true) succeeds.
      */
