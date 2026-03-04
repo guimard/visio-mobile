@@ -1,0 +1,318 @@
+import SwiftUI
+import AVFoundation
+
+struct InCallSettingsSheet: View {
+    @EnvironmentObject private var manager: VisioManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State var selectedTab: Int
+
+    private var lang: String { manager.currentLang }
+    private var isDark: Bool { manager.currentTheme == "dark" }
+
+    var body: some View {
+        NavigationStack {
+            HStack(spacing: 0) {
+                // Sidebar icons
+                VStack(spacing: 4) {
+                    tabButton(icon: "mic.fill", tab: 0)
+                    tabButton(icon: "video.fill", tab: 1)
+                    tabButton(icon: "bell.fill", tab: 2)
+                    Spacer()
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 8)
+                .background(VisioColors.surface(dark: isDark))
+
+                Divider()
+
+                // Content area
+                Group {
+                    switch selectedTab {
+                    case 0: microTab
+                    case 1: cameraTab
+                    case 2: notificationsTab
+                    default: microTab
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(VisioColors.background(dark: isDark))
+            .navigationTitle(Strings.t("settings.incall", lang: lang))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(isDark ? .dark : .light, for: .navigationBar)
+            .toolbarBackground(VisioColors.surface(dark: isDark), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .appToolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(Strings.t("audio.done", lang: lang)) { dismiss() }
+                        .foregroundStyle(VisioColors.primary500)
+                }
+            }
+        }
+    }
+
+    // MARK: - Tab Button
+
+    private func tabButton(icon: String, tab: Int) -> some View {
+        Button {
+            selectedTab = tab
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(selectedTab == tab ? VisioColors.primary500 : VisioColors.secondaryText(dark: isDark))
+                .frame(width: 44, height: 44)
+                .background(selectedTab == tab ? VisioColors.primary500.opacity(0.15) : .clear)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    // MARK: - Micro Tab
+
+    private var microTab: some View {
+        MicroTabContent()
+            .environmentObject(manager)
+    }
+
+    // MARK: - Camera Tab
+
+    private var cameraTab: some View {
+        List {
+            Section(Strings.t("settings.incall.cameraSelect", lang: lang)) {
+                Button {
+                    manager.switchCamera(toFront: true)
+                } label: {
+                    HStack {
+                        Image(systemName: "camera.front.fill")
+                            .foregroundStyle(VisioColors.primary500)
+                        Text(Strings.t("settings.incall.cameraFront", lang: lang))
+                            .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                        Spacer()
+                        if manager.isFrontCamera {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(VisioColors.primary500)
+                        }
+                    }
+                }
+
+                Button {
+                    manager.switchCamera(toFront: false)
+                } label: {
+                    HStack {
+                        Image(systemName: "camera.rear.fill")
+                            .foregroundStyle(VisioColors.primary500)
+                        Text(Strings.t("settings.incall.cameraBack", lang: lang))
+                            .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                        Spacer()
+                        if !manager.isFrontCamera {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(VisioColors.primary500)
+                        }
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(VisioColors.background(dark: isDark))
+    }
+
+    // MARK: - Notifications Tab
+
+    private var notificationsTab: some View {
+        NotificationsTabContent()
+            .environmentObject(manager)
+    }
+}
+
+// MARK: - Micro Tab Content
+
+private struct MicroTabContent: View {
+    @EnvironmentObject private var manager: VisioManager
+    @State private var availableInputs: [AVAudioSessionPortDescription] = []
+    @State private var currentOutputs: [AVAudioSessionPortDescription] = []
+    @State private var currentInput: AVAudioSessionPortDescription?
+    @State private var isSpeakerOverride: Bool = false
+
+    private var lang: String { manager.currentLang }
+    private var isDark: Bool { manager.currentTheme == "dark" }
+
+    var body: some View {
+        List {
+            // Output section
+            Section(Strings.t("settings.incall.audioOutput", lang: lang)) {
+                Button {
+                    try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+                    loadDevices()
+                } label: {
+                    HStack {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .foregroundStyle(VisioColors.primary500)
+                        Text(Strings.t("audio.speaker", lang: lang))
+                            .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                        Spacer()
+                        if isSpeakerOverride {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(VisioColors.primary500)
+                        }
+                    }
+                }
+
+                Button {
+                    try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.none)
+                    loadDevices()
+                } label: {
+                    HStack {
+                        Image(systemName: "iphone")
+                            .foregroundStyle(VisioColors.primary500)
+                        Text(Strings.t("audio.earpiece", lang: lang))
+                            .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                        Spacer()
+                        if !isSpeakerOverride && currentOutputs.contains(where: { $0.portType == .builtInReceiver || $0.portType == .builtInSpeaker }) && !currentOutputs.contains(where: { isExternalOutput($0) }) {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(VisioColors.primary500)
+                        }
+                    }
+                }
+
+                ForEach(currentOutputs.filter { isExternalOutput($0) }, id: \.uid) { port in
+                    HStack {
+                        Image(systemName: iconForOutputPort(port))
+                            .foregroundStyle(VisioColors.primary500)
+                        Text(port.portName)
+                            .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                        Spacer()
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(VisioColors.primary500)
+                    }
+                }
+            }
+
+            // Input section
+            Section(Strings.t("settings.incall.audioInput", lang: lang)) {
+                ForEach(availableInputs, id: \.uid) { port in
+                    Button {
+                        selectInput(port)
+                    } label: {
+                        HStack {
+                            Image(systemName: iconForInputPort(port))
+                                .foregroundStyle(VisioColors.primary500)
+                            Text(port.portName)
+                                .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                            Spacer()
+                            if port.uid == currentInput?.uid {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(VisioColors.primary500)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(VisioColors.background(dark: isDark))
+        .onAppear { loadDevices() }
+    }
+
+    private func loadDevices() {
+        let session = AVAudioSession.sharedInstance()
+        availableInputs = session.availableInputs ?? []
+        currentInput = session.currentRoute.inputs.first
+        currentOutputs = session.currentRoute.outputs
+        isSpeakerOverride = currentOutputs.contains { $0.portType == .builtInSpeaker }
+    }
+
+    private func selectInput(_ port: AVAudioSessionPortDescription) {
+        try? AVAudioSession.sharedInstance().setPreferredInput(port)
+        currentInput = port
+    }
+
+    private func isExternalOutput(_ port: AVAudioSessionPortDescription) -> Bool {
+        switch port.portType {
+        case .bluetoothA2DP, .bluetoothLE, .bluetoothHFP, .headphones, .airPlay, .carAudio, .usbAudio:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func iconForOutputPort(_ port: AVAudioSessionPortDescription) -> String {
+        switch port.portType {
+        case .bluetoothA2DP, .bluetoothLE, .bluetoothHFP:
+            return "wave.3.right"
+        case .headphones:
+            return "headphones"
+        case .airPlay:
+            return "airplayaudio"
+        case .carAudio:
+            return "car"
+        default:
+            return "speaker.wave.2"
+        }
+    }
+
+    private func iconForInputPort(_ port: AVAudioSessionPortDescription) -> String {
+        switch port.portType {
+        case .bluetoothHFP:
+            return "wave.3.right"
+        case .headsetMic:
+            return "headphones"
+        case .builtInMic:
+            return "iphone"
+        default:
+            return "mic"
+        }
+    }
+}
+
+// MARK: - Notifications Tab Content
+
+private struct NotificationsTabContent: View {
+    @EnvironmentObject private var manager: VisioManager
+    @State private var notifParticipant: Bool = true
+    @State private var notifHandRaised: Bool = true
+    @State private var notifMessage: Bool = true
+
+    private var lang: String { manager.currentLang }
+    private var isDark: Bool { manager.currentTheme == "dark" }
+
+    var body: some View {
+        List {
+            Section(Strings.t("settings.incall.notifications", lang: lang)) {
+                Toggle(isOn: $notifParticipant) {
+                    Label(Strings.t("settings.incall.notifParticipant", lang: lang), systemImage: "person.badge.plus")
+                        .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                }
+                .tint(VisioColors.primary500)
+                .onChange(of: notifParticipant) { value in
+                    manager.setNotificationParticipantJoin(value)
+                }
+
+                Toggle(isOn: $notifHandRaised) {
+                    Label(Strings.t("settings.incall.notifHandRaised", lang: lang), systemImage: "hand.raised.fill")
+                        .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                }
+                .tint(VisioColors.primary500)
+                .onChange(of: notifHandRaised) { value in
+                    manager.setNotificationHandRaised(value)
+                }
+
+                Toggle(isOn: $notifMessage) {
+                    Label(Strings.t("settings.incall.notifMessage", lang: lang), systemImage: "message.fill")
+                        .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                }
+                .tint(VisioColors.primary500)
+                .onChange(of: notifMessage) { value in
+                    manager.setNotificationMessageReceived(value)
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(VisioColors.background(dark: isDark))
+        .onAppear {
+            let settings = manager.getSettings()
+            notifParticipant = settings.notificationParticipantJoin
+            notifHandRaised = settings.notificationHandRaised
+            notifMessage = settings.notificationMessageReceived
+        }
+    }
+}

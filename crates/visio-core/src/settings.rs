@@ -17,6 +17,12 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_meet_instances")]
     pub meet_instances: Vec<String>,
+    #[serde(default = "default_true")]
+    pub notification_participant_join: bool,
+    #[serde(default = "default_true")]
+    pub notification_hand_raised: bool,
+    #[serde(default = "default_true")]
+    pub notification_message_received: bool,
 }
 
 fn default_meet_instances() -> Vec<String> {
@@ -40,6 +46,9 @@ impl Default for Settings {
             camera_enabled_on_join: false,
             theme: "light".to_string(),
             meet_instances: default_meet_instances(),
+            notification_participant_join: true,
+            notification_hand_raised: true,
+            notification_message_received: true,
         }
     }
 }
@@ -94,6 +103,21 @@ impl SettingsStore {
 
     pub fn set_meet_instances(&self, instances: Vec<String>) {
         self.settings.lock().unwrap().meet_instances = instances;
+        self.save();
+    }
+
+    pub fn set_notification_participant_join(&self, enabled: bool) {
+        self.settings.lock().unwrap().notification_participant_join = enabled;
+        self.save();
+    }
+
+    pub fn set_notification_hand_raised(&self, enabled: bool) {
+        self.settings.lock().unwrap().notification_hand_raised = enabled;
+        self.save();
+    }
+
+    pub fn set_notification_message_received(&self, enabled: bool) {
+        self.settings.lock().unwrap().notification_message_received = enabled;
         self.save();
     }
 
@@ -250,6 +274,31 @@ mod tests {
             "meet.numerique.gouv.fr".to_string(),
             "meet.example.com".to_string(),
         ]);
+    }
+
+    #[test]
+    fn test_default_notification_settings() {
+        let s = Settings::default();
+        assert!(s.notification_participant_join);
+        assert!(s.notification_hand_raised);
+        assert!(s.notification_message_received);
+    }
+
+    #[test]
+    fn test_set_notification_settings_persist() {
+        let dir = temp_dir();
+        let path = dir.path().to_str().unwrap();
+        {
+            let store = SettingsStore::new(path);
+            store.set_notification_participant_join(false);
+            store.set_notification_hand_raised(false);
+            store.set_notification_message_received(false);
+        }
+        let store = SettingsStore::new(path);
+        let s = store.get();
+        assert!(!s.notification_participant_join);
+        assert!(!s.notification_hand_raised);
+        assert!(!s.notification_message_received);
     }
 
     #[test]

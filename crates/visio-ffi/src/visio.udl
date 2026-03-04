@@ -61,6 +61,9 @@ dictionary Settings {
     boolean camera_enabled_on_join;
     string theme;
     sequence<string> meet_instances;
+    boolean notification_participant_join;
+    boolean notification_hand_raised;
+    boolean notification_message_received;
 };
 
 [Enum]
@@ -146,6 +149,12 @@ interface VisioClient {
     sequence<string> get_meet_instances();
 
     void set_meet_instances(sequence<string> instances);
+
+    void set_notification_participant_join(boolean enabled);
+
+    void set_notification_hand_raised(boolean enabled);
+
+    void set_notification_message_received(boolean enabled);
 
     [Throws=VisioError]
     void raise_hand();

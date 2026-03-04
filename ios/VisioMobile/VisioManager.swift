@@ -28,6 +28,7 @@ class VisioManager: ObservableObject {
     @Published var currentTheme: String = "light"
     @Published var displayName: String = ""
     @Published var pendingDeepLink: String? = nil
+    @Published var isFrontCamera: Bool = true
 
     // MARK: - Private
 
@@ -262,6 +263,23 @@ class VisioManager: ObservableObject {
 
     func updateDisplayName(_ name: String) {
         displayName = name
+    }
+
+    func switchCamera(toFront: Bool) {
+        cameraCapture?.switchCamera(toFront: toFront)
+        isFrontCamera = toFront
+    }
+
+    func setNotificationParticipantJoin(_ enabled: Bool) {
+        client.setNotificationParticipantJoin(enabled: enabled)
+    }
+
+    func setNotificationHandRaised(_ enabled: Bool) {
+        client.setNotificationHandRaised(enabled: enabled)
+    }
+
+    func setNotificationMessageReceived(_ enabled: Bool) {
+        client.setNotificationMessageReceived(enabled: enabled)
     }
 
     // MARK: - Audio Playout

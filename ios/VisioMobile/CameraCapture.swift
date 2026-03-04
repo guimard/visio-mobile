@@ -9,6 +9,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "io.visio.camera", qos: .userInitiated)
     private var frameCount: UInt64 = 0
+    private var currentPosition: AVCaptureDevice.Position = .front
+    private var currentInput: AVCaptureDeviceInput?
 
     func start() {
         // Configure and start on the camera queue (Apple warns against
@@ -45,6 +47,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
             if session.canAddInput(input) {
                 session.addInput(input)
+                currentInput = input
+                currentPosition = device.position
             }
 
             let output = AVCaptureVideoDataOutput()
@@ -62,6 +66,35 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             session.startRunning()
             NSLog("CameraCapture: session started, isRunning=%d", session.isRunning ? 1 : 0)
         }
+    }
+
+    func switchCamera(toFront: Bool) {
+        queue.async { [self] in
+            let newPosition: AVCaptureDevice.Position = toFront ? .front : .back
+            guard newPosition != currentPosition else { return }
+
+            guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition),
+                  let newInput = try? AVCaptureDeviceInput(device: newDevice) else {
+                NSLog("CameraCapture: no camera for position %d", newPosition.rawValue)
+                return
+            }
+
+            session.beginConfiguration()
+            if let currentInput {
+                session.removeInput(currentInput)
+            }
+            if session.canAddInput(newInput) {
+                session.addInput(newInput)
+                currentInput = newInput
+                currentPosition = newPosition
+            }
+            session.commitConfiguration()
+            NSLog("CameraCapture: switched to %@ camera", toFront ? "front" : "back")
+        }
+    }
+
+    func isFront() -> Bool {
+        return currentPosition == .front
     }
 
     func stop() {

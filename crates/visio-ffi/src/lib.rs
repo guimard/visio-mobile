@@ -234,6 +234,9 @@ pub struct Settings {
     pub camera_enabled_on_join: bool,
     pub theme: String,
     pub meet_instances: Vec<String>,
+    pub notification_participant_join: bool,
+    pub notification_hand_raised: bool,
+    pub notification_message_received: bool,
 }
 
 impl From<visio_core::Settings> for Settings {
@@ -245,6 +248,9 @@ impl From<visio_core::Settings> for Settings {
             camera_enabled_on_join: s.camera_enabled_on_join,
             theme: s.theme,
             meet_instances: s.meet_instances,
+            notification_participant_join: s.notification_participant_join,
+            notification_hand_raised: s.notification_hand_raised,
+            notification_message_received: s.notification_message_received,
         }
     }
 }
@@ -602,6 +608,18 @@ impl VisioClient {
 
     pub fn set_meet_instances(&self, instances: Vec<String>) {
         self.settings.set_meet_instances(instances);
+    }
+
+    pub fn set_notification_participant_join(&self, enabled: bool) {
+        self.settings.set_notification_participant_join(enabled);
+    }
+
+    pub fn set_notification_hand_raised(&self, enabled: bool) {
+        self.settings.set_notification_hand_raised(enabled);
+    }
+
+    pub fn set_notification_message_received(&self, enabled: bool) {
+        self.settings.set_notification_message_received(enabled);
     }
 
     pub fn raise_hand(&self) -> Result<(), VisioError> {

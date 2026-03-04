@@ -551,6 +551,12 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     
     func setMicrophoneEnabled(enabled: Bool) throws 
     
+    func setNotificationHandRaised(enabled: Bool) 
+    
+    func setNotificationMessageReceived(enabled: Bool) 
+    
+    func setNotificationParticipantJoin(enabled: Bool) 
+    
     func setTheme(theme: String) 
     
     func startVideoRenderer(trackSid: String) 
@@ -777,6 +783,27 @@ open func setMicEnabledOnJoin(enabled: Bool)  {try! rustCall() {
     
 open func setMicrophoneEnabled(enabled: Bool)throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
     uniffi_visio_ffi_fn_method_visioclient_set_microphone_enabled(self.uniffiClonePointer(),
+        FfiConverterBool.lower(enabled),$0
+    )
+}
+}
+    
+open func setNotificationHandRaised(enabled: Bool)  {try! rustCall() {
+    uniffi_visio_ffi_fn_method_visioclient_set_notification_hand_raised(self.uniffiClonePointer(),
+        FfiConverterBool.lower(enabled),$0
+    )
+}
+}
+    
+open func setNotificationMessageReceived(enabled: Bool)  {try! rustCall() {
+    uniffi_visio_ffi_fn_method_visioclient_set_notification_message_received(self.uniffiClonePointer(),
+        FfiConverterBool.lower(enabled),$0
+    )
+}
+}
+    
+open func setNotificationParticipantJoin(enabled: Bool)  {try! rustCall() {
+    uniffi_visio_ffi_fn_method_visioclient_set_notification_participant_join(self.uniffiClonePointer(),
         FfiConverterBool.lower(enabled),$0
     )
 }
@@ -1086,16 +1113,22 @@ public struct Settings {
     public var cameraEnabledOnJoin: Bool
     public var theme: String
     public var meetInstances: [String]
+    public var notificationParticipantJoin: Bool
+    public var notificationHandRaised: Bool
+    public var notificationMessageReceived: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(displayName: String?, language: String?, micEnabledOnJoin: Bool, cameraEnabledOnJoin: Bool, theme: String, meetInstances: [String]) {
+    public init(displayName: String?, language: String?, micEnabledOnJoin: Bool, cameraEnabledOnJoin: Bool, theme: String, meetInstances: [String], notificationParticipantJoin: Bool, notificationHandRaised: Bool, notificationMessageReceived: Bool) {
         self.displayName = displayName
         self.language = language
         self.micEnabledOnJoin = micEnabledOnJoin
         self.cameraEnabledOnJoin = cameraEnabledOnJoin
         self.theme = theme
         self.meetInstances = meetInstances
+        self.notificationParticipantJoin = notificationParticipantJoin
+        self.notificationHandRaised = notificationHandRaised
+        self.notificationMessageReceived = notificationMessageReceived
     }
 }
 
@@ -1124,6 +1157,15 @@ extension Settings: Equatable, Hashable {
         if lhs.meetInstances != rhs.meetInstances {
             return false
         }
+        if lhs.notificationParticipantJoin != rhs.notificationParticipantJoin {
+            return false
+        }
+        if lhs.notificationHandRaised != rhs.notificationHandRaised {
+            return false
+        }
+        if lhs.notificationMessageReceived != rhs.notificationMessageReceived {
+            return false
+        }
         return true
     }
 
@@ -1134,6 +1176,9 @@ extension Settings: Equatable, Hashable {
         hasher.combine(cameraEnabledOnJoin)
         hasher.combine(theme)
         hasher.combine(meetInstances)
+        hasher.combine(notificationParticipantJoin)
+        hasher.combine(notificationHandRaised)
+        hasher.combine(notificationMessageReceived)
     }
 }
 
@@ -1151,7 +1196,10 @@ public struct FfiConverterTypeSettings: FfiConverterRustBuffer {
                 micEnabledOnJoin: FfiConverterBool.read(from: &buf), 
                 cameraEnabledOnJoin: FfiConverterBool.read(from: &buf), 
                 theme: FfiConverterString.read(from: &buf), 
-                meetInstances: FfiConverterSequenceString.read(from: &buf)
+                meetInstances: FfiConverterSequenceString.read(from: &buf), 
+                notificationParticipantJoin: FfiConverterBool.read(from: &buf), 
+                notificationHandRaised: FfiConverterBool.read(from: &buf), 
+                notificationMessageReceived: FfiConverterBool.read(from: &buf)
         )
     }
 
@@ -1162,6 +1210,9 @@ public struct FfiConverterTypeSettings: FfiConverterRustBuffer {
         FfiConverterBool.write(value.cameraEnabledOnJoin, into: &buf)
         FfiConverterString.write(value.theme, into: &buf)
         FfiConverterSequenceString.write(value.meetInstances, into: &buf)
+        FfiConverterBool.write(value.notificationParticipantJoin, into: &buf)
+        FfiConverterBool.write(value.notificationHandRaised, into: &buf)
+        FfiConverterBool.write(value.notificationMessageReceived, into: &buf)
     }
 }
 
@@ -2287,6 +2338,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_set_microphone_enabled() != 607) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_set_notification_hand_raised() != 14515) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_set_notification_message_received() != 21707) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_set_notification_participant_join() != 47125) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_set_theme() != 58689) {

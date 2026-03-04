@@ -27,6 +27,7 @@
 		A10001000000000000000015 /* PiPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000019 /* PiPManager.swift */; };
 		A10001000000000000000016 /* ToolbarFix.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000200000000000000001A /* ToolbarFix.swift */; };
 		A10001000000000000000017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000200000000000000001B /* Assets.xcassets */; };
+		A10001000000000000000018 /* InCallSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000200000000000000001C /* InCallSettingsSheet.swift */; };
 		A1000100000000000000000B /* libvisio_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000200000000000000000B /* libvisio_ffi.a */; };
 		A1000100000000000000000C /* libvisio_video.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000200000000000000000C /* libvisio_video.a */; };
 		A1000100000000000000000D /* libresolv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000200000000000000000D /* libresolv.tbd */; };
@@ -60,6 +61,7 @@
 		A10002000000000000000019 /* PiPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPManager.swift; sourceTree = "<group>"; };
 		A1000200000000000000001A /* ToolbarFix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarFix.swift; sourceTree = "<group>"; };
 		A1000200000000000000001B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1000200000000000000001C /* InCallSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallSettingsSheet.swift; sourceTree = "<group>"; };
 		A10003000000000000000001 /* VisioMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VisioMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -125,6 +127,7 @@
 				A10002000000000000000013 /* ParticipantListSheet.swift */,
 				A10002000000000000000016 /* VisioLogo.swift */,
 				A10002000000000000000017 /* SettingsView.swift */,
+				A1000200000000000000001C /* InCallSettingsSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -284,6 +287,7 @@
 				A10001000000000000000014 /* CallKitManager.swift in Sources */,
 				A10001000000000000000015 /* PiPManager.swift in Sources */,
 				A10001000000000000000016 /* ToolbarFix.swift in Sources */,
+				A10001000000000000000018 /* InCallSettingsSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

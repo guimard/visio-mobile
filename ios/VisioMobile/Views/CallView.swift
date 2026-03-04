@@ -12,6 +12,8 @@ struct CallView: View {
 
     @State private var showChat: Bool = false
     @State private var showAudioDevices: Bool = false
+    @State private var showInCallSettings: Bool = false
+    @State private var inCallSettingsTab: Int = 0
     @State private var showParticipantList: Bool = false
     @State private var focusedParticipant: String? = nil
 
@@ -82,6 +84,11 @@ struct CallView: View {
             AudioDeviceSheet()
                 .environmentObject(manager)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showInCallSettings) {
+            InCallSettingsSheet(selectedTab: inCallSettingsTab)
+                .environmentObject(manager)
+                .presentationDetents([.medium, .large])
         }
         .onAppear {
             let name = displayName.isEmpty ? nil : displayName
@@ -304,6 +311,19 @@ struct CallView: View {
                 }
             }
 
+            // In-call settings
+            Button {
+                inCallSettingsTab = 0
+                showInCallSettings = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(VisioColors.primaryDark100)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
             // Hangup
             Button {
                 manager.disconnect()
@@ -469,9 +489,7 @@ struct AudioDeviceSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                // MARK: - Output section
                 Section(Strings.t("audio.output", lang: lang)) {
-                    // Speaker option
                     Button {
                         try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
                         loadDevices()
@@ -489,7 +507,6 @@ struct AudioDeviceSheet: View {
                         }
                     }
 
-                    // Earpiece / default output
                     Button {
                         try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.none)
                         loadDevices()
@@ -507,7 +524,6 @@ struct AudioDeviceSheet: View {
                         }
                     }
 
-                    // External outputs (Bluetooth, headphones, etc.)
                     ForEach(currentOutputs.filter { isExternalOutput($0) }, id: \.uid) { port in
                         HStack {
                             Image(systemName: iconForOutputPort(port))
@@ -521,7 +537,6 @@ struct AudioDeviceSheet: View {
                     }
                 }
 
-                // MARK: - Input section
                 Section(Strings.t("audio.input", lang: lang)) {
                     ForEach(availableInputs, id: \.uid) { port in
                         Button {
