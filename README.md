@@ -14,12 +14,12 @@ Native video conferencing client for [La Suite Meet](https://meet.numerique.gouv
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/android_call.png" alt="Android — Video call with 2 participants" width="300" />
-  &nbsp;&nbsp;&nbsp;&nbsp;
   <img src="docs/screenshots/ios_home.png" alt="iOS — Home screen" width="300" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/android_call.png" alt="Android — Video call with 2 participants" width="300" />
 </p>
 <p align="center">
-  <em>Left: Android — Active video call &nbsp;|&nbsp; Right: iOS — Home screen</em>
+  <em>Left: iOS — Home screen &nbsp;|&nbsp; Right: Android — Active video call</em>
 </p>
 
 ## Platforms
