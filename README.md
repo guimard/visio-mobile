@@ -269,7 +269,7 @@ docs/plans/         Design docs and implementation plans
 
 - **Wake lock**: Screen stays on during active calls; audio continues when screen is manually turned off (Android partial wake lock, iOS idle timer disabled)
 - **Independent audio routing**: Select input and output audio devices separately (e.g., Bluetooth mic + phone speaker)
-- **La Suite Meet icon**: New branded app icon across all platforms
+- **New Visio Mobile icon**: New branded app icon across all platforms
 - **In-call settings panel**: Tabbed bottom sheet for microphone/camera/notification settings during a call
 - **Network resilience**: Automatic reconnection with UI banner (via LiveKit SDK)
 
