@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import uniffi.visio.ConnectionState
 
 class MainActivity : ComponentActivity() {
-
     private fun parseDeepLink(intent: Intent?): String? {
         val uri = intent?.data ?: return null
         if (uri.scheme != "visio") return null
@@ -39,33 +38,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val pipActionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                ACTION_TOGGLE_MIC -> {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val enabled = VisioManager.client.isMicrophoneEnabled()
-                            if (enabled) {
-                                VisioManager.stopAudioCapture()
-                                VisioManager.client.setMicrophoneEnabled(false)
-                            } else {
-                                VisioManager.client.setMicrophoneEnabled(true)
-                                VisioManager.startAudioCapture()
+    private val pipActionReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                when (intent.action) {
+                    ACTION_TOGGLE_MIC -> {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val enabled = VisioManager.client.isMicrophoneEnabled()
+                                if (enabled) {
+                                    VisioManager.stopAudioCapture()
+                                    VisioManager.client.setMicrophoneEnabled(false)
+                                } else {
+                                    VisioManager.client.setMicrophoneEnabled(true)
+                                    VisioManager.startAudioCapture()
+                                }
+                            } catch (_: Exception) {
                             }
-                        } catch (_: Exception) {}
+                        }
                     }
-                }
-                ACTION_HANGUP -> {
-                    VisioManager.stopCameraCapture()
-                    VisioManager.stopAudioCapture()
-                    VisioManager.stopAudioPlayout()
-                    VisioManager.client.disconnect()
-                    finish()
+                    ACTION_HANGUP -> {
+                        VisioManager.stopCameraCapture()
+                        VisioManager.stopAudioCapture()
+                        VisioManager.stopAudioPlayout()
+                        VisioManager.client.disconnect()
+                        finish()
+                    }
                 }
             }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -73,10 +77,11 @@ class MainActivity : ComponentActivity() {
 
         parseDeepLink(intent)?.let { VisioManager.pendingDeepLink = it }
 
-        val filter = IntentFilter().apply {
-            addAction(ACTION_TOGGLE_MIC)
-            addAction(ACTION_HANGUP)
-        }
+        val filter =
+            IntentFilter().apply {
+                addAction(ACTION_TOGGLE_MIC)
+                addAction(ACTION_HANGUP)
+            }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(pipActionReceiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
@@ -88,7 +93,7 @@ class MainActivity : ComponentActivity() {
             VisioTheme(darkTheme = isDark) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background,
                 ) {
                     AppNavigation()
                 }
@@ -105,7 +110,8 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         try {
             unregisterReceiver(pipActionReceiver)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     override fun onUserLeaveHint() {
@@ -113,9 +119,10 @@ class MainActivity : ComponentActivity() {
         val state = VisioManager.connectionState.value
         if (state is ConnectionState.Connected) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val params = PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(16, 9))
-                    .build()
+                val params =
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .build()
                 enterPictureInPictureMode(params)
             }
         }

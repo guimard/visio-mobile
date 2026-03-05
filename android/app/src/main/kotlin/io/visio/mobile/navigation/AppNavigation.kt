@@ -18,7 +18,6 @@ fun AppNavigation() {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "home") {
-
         composable("home") {
             HomeScreen(
                 onJoin = { roomUrl, username ->
@@ -28,47 +27,50 @@ fun AppNavigation() {
                 },
                 onSettings = {
                     navController.navigate("settings")
-                }
+                },
             )
         }
 
         composable(
             route = "call/{roomUrl}?username={username}",
-            arguments = listOf(
-                navArgument("roomUrl") { type = NavType.StringType },
-                navArgument("username") {
-                    type = NavType.StringType
-                    defaultValue = ""
-                }
-            )
+            arguments =
+                listOf(
+                    navArgument("roomUrl") { type = NavType.StringType },
+                    navArgument("username") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
         ) { backStackEntry ->
-            val roomUrl = URLDecoder.decode(
-                backStackEntry.arguments?.getString("roomUrl") ?: "",
-                "UTF-8"
-            )
-            val username = URLDecoder.decode(
-                backStackEntry.arguments?.getString("username") ?: "",
-                "UTF-8"
-            )
+            val roomUrl =
+                URLDecoder.decode(
+                    backStackEntry.arguments?.getString("roomUrl") ?: "",
+                    "UTF-8",
+                )
+            val username =
+                URLDecoder.decode(
+                    backStackEntry.arguments?.getString("username") ?: "",
+                    "UTF-8",
+                )
             CallScreen(
                 roomUrl = roomUrl,
                 username = username,
                 onNavigateToChat = { navController.navigate("chat") },
                 onHangUp = {
                     navController.popBackStack("home", inclusive = false)
-                }
+                },
             )
         }
 
         composable("chat") {
             ChatScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
 
         composable("settings") {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
     }

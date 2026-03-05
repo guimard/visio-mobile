@@ -15,11 +15,15 @@ object Strings {
                 val map = mutableMapOf<String, String>()
                 obj.keys().forEach { key -> map[key] = obj.getString(key) }
                 translations[lang] = map
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
 
-    fun t(key: String, lang: String): String {
+    fun t(
+        key: String,
+        lang: String,
+    ): String {
         return translations[lang]?.get(key) ?: translations["en"]?.get(key) ?: key
     }
 

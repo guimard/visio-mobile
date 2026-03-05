@@ -8,7 +8,11 @@ object NativeVideo {
         System.loadLibrary("visio_ffi")
     }
 
-    external fun attachSurface(trackSid: String, surface: Surface)
+    external fun attachSurface(
+        trackSid: String,
+        surface: Surface,
+    )
+
     external fun detachSurface(trackSid: String)
 
     /**
@@ -20,11 +24,17 @@ object NativeVideo {
      * in each plane (1 for planar I420, 2 for semi-planar NV12/NV21).
      */
     external fun nativePushCameraFrame(
-        y: ByteBuffer, u: ByteBuffer, v: ByteBuffer,
-        yStride: Int, uStride: Int, vStride: Int,
-        uPixelStride: Int, vPixelStride: Int,
-        width: Int, height: Int,
-        rotation: Int
+        y: ByteBuffer,
+        u: ByteBuffer,
+        v: ByteBuffer,
+        yStride: Int,
+        uStride: Int,
+        vStride: Int,
+        uPixelStride: Int,
+        vPixelStride: Int,
+        width: Int,
+        height: Int,
+        rotation: Int,
     )
 
     /**
@@ -45,7 +55,7 @@ object NativeVideo {
         data: ByteBuffer,
         numSamples: Int,
         sampleRate: Int,
-        numChannels: Int
+        numChannels: Int,
     )
 
     /**

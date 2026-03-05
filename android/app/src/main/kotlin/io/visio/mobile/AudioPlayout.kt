@@ -2,7 +2,6 @@ package io.visio.mobile
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
 
@@ -13,12 +12,12 @@ import android.util.Log
  * and writes PCM samples to an Android AudioTrack.
  */
 class AudioPlayout {
-
     companion object {
         private const val TAG = "AudioPlayout"
         private const val SAMPLE_RATE = 48000
         private const val CHANNELS = 1
         private const val FRAME_SIZE_MS = 10
+
         // 480 samples per 10ms frame at 48kHz mono
         private const val SAMPLES_PER_FRAME = SAMPLE_RATE * FRAME_SIZE_MS / 1000 * CHANNELS
     }
@@ -32,54 +31,57 @@ class AudioPlayout {
         if (running) return
         running = true
 
-        val minBuf = AudioTrack.getMinBufferSize(
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_16BIT
-        )
+        val minBuf =
+            AudioTrack.getMinBufferSize(
+                SAMPLE_RATE,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
         // Use at least 4x min buffer to avoid underruns on slower devices
         val bufferSize = maxOf(minBuf * 4, SAMPLES_PER_FRAME * 2 * 4)
 
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setSampleRate(SAMPLE_RATE)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .build()
-            )
-            .setBufferSizeInBytes(bufferSize)
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
+        val track =
+            AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setSampleRate(SAMPLE_RATE)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .build(),
+                )
+                .setBufferSizeInBytes(bufferSize)
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .build()
 
         audioTrack = track
         track.play()
         Log.i(TAG, "Audio playout started: ${SAMPLE_RATE}Hz mono, ${FRAME_SIZE_MS}ms frames")
 
-        playThread = Thread({
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-            val buffer = ShortArray(SAMPLES_PER_FRAME)
+        playThread =
+            Thread({
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
+                val buffer = ShortArray(SAMPLES_PER_FRAME)
 
-            while (running) {
-                val pulled = NativeVideo.nativePullAudioPlayback(buffer)
-                if (pulled > 0) {
-                    track.write(buffer, 0, pulled)
-                } else {
-                    // No data available — sleep briefly to avoid busy-spin
-                    Thread.sleep(5)
+                while (running) {
+                    val pulled = NativeVideo.nativePullAudioPlayback(buffer)
+                    if (pulled > 0) {
+                        track.write(buffer, 0, pulled)
+                    } else {
+                        // No data available — sleep briefly to avoid busy-spin
+                        Thread.sleep(5)
+                    }
                 }
-            }
 
-            track.stop()
-            track.release()
-            Log.i(TAG, "Audio playout stopped")
-        }, "AudioPlayout").also { it.start() }
+                track.stop()
+                track.release()
+                Log.i(TAG, "Audio playout stopped")
+            }, "AudioPlayout").also { it.start() }
     }
 
     fun stop() {

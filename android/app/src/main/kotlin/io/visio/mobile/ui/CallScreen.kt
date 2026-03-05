@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,9 +35,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,7 +54,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,7 +86,7 @@ fun CallScreen(
     roomUrl: String,
     username: String,
     onNavigateToChat: () -> Unit,
-    onHangUp: () -> Unit
+    onHangUp: () -> Unit,
 ) {
     val connectionState by VisioManager.connectionState.collectAsState()
     val participants by VisioManager.participants.collectAsState()
@@ -112,39 +108,44 @@ fun CallScreen(
     val coroutineScope = rememberCoroutineScope()
 
     // Check if in PiP mode
-    val isInPiP = context.findActivity()?.let {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) it.isInPictureInPictureMode else false
-    } ?: false
+    val isInPiP =
+        context.findActivity()?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) it.isInPictureInPictureMode else false
+        } ?: false
 
     // Mic permission launcher
-    val micPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    VisioManager.client.setMicrophoneEnabled(true)
-                    VisioManager.startAudioCapture()
-                    micEnabled = true
-                } catch (_: Exception) {}
+    val micPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        VisioManager.client.setMicrophoneEnabled(true)
+                        VisioManager.startAudioCapture()
+                        micEnabled = true
+                    } catch (_: Exception) {
+                    }
+                }
             }
         }
-    }
 
     // Camera permission launcher
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    VisioManager.client.setCameraEnabled(true)
-                    VisioManager.startCameraCapture()
-                    cameraEnabled = true
-                } catch (_: Exception) {}
+    val cameraPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        VisioManager.client.setCameraEnabled(true)
+                        VisioManager.startCameraCapture()
+                        cameraEnabled = true
+                    } catch (_: Exception) {
+                    }
+                }
             }
         }
-    }
 
     // Stop capture and playout when leaving the call screen
     DisposableEffect(Unit) {
@@ -172,9 +173,10 @@ fun CallScreen(
 
                 // Apply mic-on-join setting (only if permission already granted)
                 if (settings.micEnabledOnJoin) {
-                    val hasMicPerm = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.RECORD_AUDIO
-                    ) == PackageManager.PERMISSION_GRANTED
+                    val hasMicPerm =
+                        ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.RECORD_AUDIO,
+                        ) == PackageManager.PERMISSION_GRANTED
                     if (hasMicPerm) {
                         VisioManager.client.setMicrophoneEnabled(true)
                         VisioManager.startAudioCapture()
@@ -184,9 +186,10 @@ fun CallScreen(
 
                 // Apply camera-on-join setting (only if permission already granted)
                 if (settings.cameraEnabledOnJoin) {
-                    val hasCamPerm = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.CAMERA
-                    ) == PackageManager.PERMISSION_GRANTED
+                    val hasCamPerm =
+                        ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.CAMERA,
+                        ) == PackageManager.PERMISSION_GRANTED
                     if (hasCamPerm) {
                         VisioManager.client.setCameraEnabled(true)
                         VisioManager.startCameraCapture()
@@ -203,7 +206,10 @@ fun CallScreen(
     // Notify backend when navigating to chat
     val onChatOpen = {
         coroutineScope.launch(Dispatchers.IO) {
-            try { VisioManager.client.setChatOpen(true) } catch (_: Exception) {}
+            try {
+                VisioManager.client.setChatOpen(true)
+            } catch (_: Exception) {
+            }
         }
         onNavigateToChat()
     }
@@ -211,10 +217,11 @@ fun CallScreen(
     // PiP mode: show only active speaker, no controls
     if (isInPiP) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(VisioColors.PrimaryDark50),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(VisioColors.PrimaryDark50),
+            contentAlignment = Alignment.Center,
         ) {
             val activeSpeakerSid = activeSpeakers.firstOrNull()
             val speaker = participants.find { it.sid == activeSpeakerSid } ?: participants.firstOrNull()
@@ -223,7 +230,7 @@ fun CallScreen(
                     participant = speaker,
                     isActiveSpeaker = false,
                     handRaisePosition = 0,
-                    onClick = {}
+                    onClick = {},
                 )
             }
         }
@@ -240,7 +247,7 @@ fun CallScreen(
             localIsHandRaised = isHandRaised,
             handRaisedMap = handRaisedMap,
             lang = lang,
-            onDismiss = { showParticipantList = false }
+            onDismiss = { showParticipantList = false },
         )
     }
 
@@ -262,15 +269,16 @@ fun CallScreen(
             onSwitchCamera = { useFront ->
                 VisioManager.switchCamera(useFront)
             },
-            isFrontCamera = VisioManager.isFrontCamera()
+            isFrontCamera = VisioManager.isFrontCamera(),
         )
     }
 
     // Main call layout
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(VisioColors.PrimaryDark50)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(VisioColors.PrimaryDark50),
     ) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             // Connection state banner
@@ -278,25 +286,27 @@ fun CallScreen(
 
             // Video grid area
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(8.dp)
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(8.dp),
             ) {
                 val focusedP = focusedParticipantSid?.let { sid -> participants.find { it.sid == sid } }
 
                 if (focusedP != null) {
                     // Focus mode — full-screen focused participant
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(8.dp))
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp)),
                     ) {
                         ParticipantTile(
                             participant = focusedP,
                             isActiveSpeaker = activeSpeakers.contains(focusedP.sid),
                             handRaisePosition = handRaisedMap[focusedP.sid] ?: 0,
-                            onClick = { focusedParticipantSid = null }
+                            onClick = { focusedParticipantSid = null },
                         )
                     }
                 } else {
@@ -304,40 +314,43 @@ fun CallScreen(
                     val count = participants.size
                     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                         val isLandscape = maxWidth > maxHeight
-                        val columnCount = when {
-                            count == 1 -> 1
-                            isLandscape -> minOf(count, 3)
-                            count <= 2 -> 1
-                            else -> 2
-                        }
+                        val columnCount =
+                            when {
+                                count == 1 -> 1
+                                isLandscape -> minOf(count, 3)
+                                count <= 2 -> 1
+                                else -> 2
+                            }
                         val rowCount = (count + columnCount - 1) / columnCount
                         val tileHeight = (maxHeight - 8.dp * (rowCount - 1)) / rowCount
 
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
                         ) {
                             for (rowStart in 0 until count step columnCount) {
                                 val rowEnd = minOf(rowStart + columnCount, count)
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(tileHeight)
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(tileHeight),
                                 ) {
                                     for (idx in rowStart until rowEnd) {
                                         val p = participants[idx]
                                         Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight()
-                                                .clip(RoundedCornerShape(8.dp))
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                                    .clip(RoundedCornerShape(8.dp)),
                                         ) {
                                             ParticipantTile(
                                                 participant = p,
                                                 isActiveSpeaker = activeSpeakers.contains(p.sid),
                                                 handRaisePosition = handRaisedMap[p.sid] ?: 0,
-                                                onClick = { focusedParticipantSid = p.sid }
+                                                onClick = { focusedParticipantSid = p.sid },
                                             )
                                         }
                                     }
@@ -361,16 +374,18 @@ fun CallScreen(
                 onToggleMic = {
                     val newState = !micEnabled
                     if (newState) {
-                        val hasPermission = ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
+                        val hasPermission =
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.RECORD_AUDIO,
+                            ) == PackageManager.PERMISSION_GRANTED
                         if (hasPermission) {
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     VisioManager.client.setMicrophoneEnabled(true)
                                     VisioManager.startAudioCapture()
                                     micEnabled = true
-                                } catch (_: Exception) {}
+                                } catch (_: Exception) {
+                                }
                             }
                         } else {
                             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -381,7 +396,8 @@ fun CallScreen(
                                 VisioManager.stopAudioCapture()
                                 VisioManager.client.setMicrophoneEnabled(false)
                                 micEnabled = false
-                            } catch (_: Exception) {}
+                            } catch (_: Exception) {
+                            }
                         }
                     }
                 },
@@ -392,9 +408,10 @@ fun CallScreen(
                 onToggleCamera = {
                     val newState = !cameraEnabled
                     if (newState) {
-                        val hasPermission = ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.CAMERA
-                        ) == PackageManager.PERMISSION_GRANTED
+                        val hasPermission =
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.CAMERA,
+                            ) == PackageManager.PERMISSION_GRANTED
                         if (hasPermission) {
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
@@ -402,7 +419,8 @@ fun CallScreen(
                                     VisioManager.startCameraCapture()
                                     cameraEnabled = true
                                     VisioManager.refreshParticipantsPublic()
-                                } catch (_: Exception) {}
+                                } catch (_: Exception) {
+                                }
                             }
                         } else {
                             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -414,7 +432,8 @@ fun CallScreen(
                                 VisioManager.client.setCameraEnabled(false)
                                 cameraEnabled = false
                                 VisioManager.refreshParticipantsPublic()
-                            } catch (_: Exception) {}
+                            } catch (_: Exception) {
+                            }
                         }
                     }
                 },
@@ -426,7 +445,8 @@ fun CallScreen(
                             } else {
                                 VisioManager.client.raiseHand()
                             }
-                        } catch (_: Exception) {}
+                        } catch (_: Exception) {
+                        }
                     }
                 },
                 onParticipants = { showParticipantList = true },
@@ -441,7 +461,7 @@ fun CallScreen(
                     VisioManager.stopAudioPlayout()
                     VisioManager.client.disconnect()
                     onHangUp()
-                }
+                },
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -464,48 +484,51 @@ private fun ControlBar(
     onParticipants: () -> Unit,
     onSettings: () -> Unit,
     onChat: () -> Unit,
-    onHangUp: () -> Unit
+    onHangUp: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .background(VisioColors.PrimaryDark75, RoundedCornerShape(16.dp))
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .background(VisioColors.PrimaryDark75, RoundedCornerShape(16.dp))
+                .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         // Mic group: toggle + audio picker chevron
         Row(
-            modifier = Modifier
-                .background(
-                    if (micEnabled) VisioColors.PrimaryDark100 else VisioColors.Error200,
-                    RoundedCornerShape(8.dp)
-                ),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .background(
+                        if (micEnabled) VisioColors.PrimaryDark100 else VisioColors.Error200,
+                        RoundedCornerShape(8.dp),
+                    ),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
                 onClick = onToggleMic,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(44.dp),
             ) {
                 Icon(
-                    painter = painterResource(
-                        if (micEnabled) R.drawable.ri_mic_line else R.drawable.ri_mic_off_line
-                    ),
+                    painter =
+                        painterResource(
+                            if (micEnabled) R.drawable.ri_mic_line else R.drawable.ri_mic_off_line,
+                        ),
                     contentDescription = if (micEnabled) Strings.t("control.mute", lang) else Strings.t("control.unmute", lang),
                     tint = VisioColors.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
             IconButton(
                 onClick = onAudioPicker,
-                modifier = Modifier.size(28.dp, 44.dp)
+                modifier = Modifier.size(28.dp, 44.dp),
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ri_arrow_up_s_line),
                     contentDescription = Strings.t("control.audioDevices", lang),
                     tint = VisioColors.White,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
@@ -513,68 +536,72 @@ private fun ControlBar(
         // Camera toggle
         IconButton(
             onClick = onToggleCamera,
-            modifier = Modifier
-                .size(44.dp)
-                .background(
-                    if (cameraEnabled) VisioColors.PrimaryDark100 else VisioColors.Error200,
-                    RoundedCornerShape(8.dp)
-                )
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(
+                        if (cameraEnabled) VisioColors.PrimaryDark100 else VisioColors.Error200,
+                        RoundedCornerShape(8.dp),
+                    ),
         ) {
             Icon(
-                painter = painterResource(
-                    if (cameraEnabled) R.drawable.ri_video_on_line else R.drawable.ri_video_off_line
-                ),
+                painter =
+                    painterResource(
+                        if (cameraEnabled) R.drawable.ri_video_on_line else R.drawable.ri_video_off_line,
+                    ),
                 contentDescription = if (cameraEnabled) Strings.t("control.camOff", lang) else Strings.t("control.camOn", lang),
                 tint = VisioColors.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
 
         // Hand raise
         IconButton(
             onClick = onToggleHandRaise,
-            modifier = Modifier
-                .size(44.dp)
-                .background(
-                    if (isHandRaised) VisioColors.HandRaise else VisioColors.PrimaryDark100,
-                    RoundedCornerShape(8.dp)
-                )
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(
+                        if (isHandRaised) VisioColors.HandRaise else VisioColors.PrimaryDark100,
+                        RoundedCornerShape(8.dp),
+                    ),
         ) {
             Icon(
                 painter = painterResource(R.drawable.ri_hand),
                 contentDescription = if (isHandRaised) Strings.t("control.lowerHand", lang) else Strings.t("control.raiseHand", lang),
                 tint = if (isHandRaised) Color.Black else VisioColors.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
 
         // Participants with count badge
         IconButton(
             onClick = onParticipants,
-            modifier = Modifier
-                .size(44.dp)
-                .background(VisioColors.PrimaryDark100, RoundedCornerShape(8.dp))
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(VisioColors.PrimaryDark100, RoundedCornerShape(8.dp)),
         ) {
             BadgedBox(
                 badge = {
                     if (participantCount > 0) {
                         Badge(
                             containerColor = VisioColors.Primary500,
-                            contentColor = VisioColors.White
+                            contentColor = VisioColors.White,
                         ) {
                             Text(
                                 text = "$participantCount",
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
                             )
                         }
                     }
-                }
+                },
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ri_group_line),
                     contentDescription = Strings.t("participants.title", lang),
                     tint = VisioColors.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -582,30 +609,31 @@ private fun ControlBar(
         // Chat with unread badge
         IconButton(
             onClick = onChat,
-            modifier = Modifier
-                .size(44.dp)
-                .background(VisioColors.PrimaryDark100, RoundedCornerShape(8.dp))
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(VisioColors.PrimaryDark100, RoundedCornerShape(8.dp)),
         ) {
             BadgedBox(
                 badge = {
                     if (unreadCount > 0) {
                         Badge(
                             containerColor = VisioColors.Error500,
-                            contentColor = VisioColors.White
+                            contentColor = VisioColors.White,
                         ) {
                             Text(
                                 text = if (unreadCount > 9) "9+" else "$unreadCount",
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
                             )
                         }
                     }
-                }
+                },
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ri_chat_1_line),
                     contentDescription = Strings.t("chat", lang),
                     tint = VisioColors.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -613,30 +641,32 @@ private fun ControlBar(
         // Settings gear
         IconButton(
             onClick = onSettings,
-            modifier = Modifier
-                .size(44.dp)
-                .background(VisioColors.PrimaryDark100, RoundedCornerShape(8.dp))
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(VisioColors.PrimaryDark100, RoundedCornerShape(8.dp)),
         ) {
             Icon(
                 painter = painterResource(R.drawable.ri_settings_3_line),
                 contentDescription = Strings.t("settings.incall", lang),
                 tint = VisioColors.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
 
         // Hangup
         IconButton(
             onClick = onHangUp,
-            modifier = Modifier
-                .size(44.dp)
-                .background(VisioColors.Error500, RoundedCornerShape(8.dp))
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .background(VisioColors.Error500, RoundedCornerShape(8.dp)),
         ) {
             Icon(
                 painter = painterResource(R.drawable.ri_phone_fill),
                 contentDescription = Strings.t("control.leave", lang),
                 tint = VisioColors.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -647,62 +677,66 @@ fun ParticipantTile(
     participant: ParticipantInfo,
     isActiveSpeaker: Boolean,
     handRaisePosition: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val lang = VisioManager.currentLang
     val name = participant.name ?: participant.identity
-    val initials = name
-        .split(" ")
-        .mapNotNull { it.firstOrNull()?.uppercase() }
-        .take(2)
-        .joinToString("")
-        .ifEmpty { "?" }
+    val initials =
+        name
+            .split(" ")
+            .mapNotNull { it.firstOrNull()?.uppercase() }
+            .take(2)
+            .joinToString("")
+            .ifEmpty { "?" }
 
     // Deterministic hue from name
     val hue = name.fold(0) { acc, c -> acc + c.code }.absoluteValue % 360
     val avatarColor = Color.hsl(hue.toFloat(), 0.5f, 0.35f)
 
     val borderColor = if (isActiveSpeaker) VisioColors.Primary500 else Color.Transparent
-    val borderMod = if (isActiveSpeaker) {
-        Modifier
-            .border(2.dp, borderColor, RoundedCornerShape(8.dp))
-            .shadow(8.dp, RoundedCornerShape(8.dp), ambientColor = VisioColors.Primary500)
-    } else {
-        Modifier
-    }
+    val borderMod =
+        if (isActiveSpeaker) {
+            Modifier
+                .border(2.dp, borderColor, RoundedCornerShape(8.dp))
+                .shadow(8.dp, RoundedCornerShape(8.dp), ambientColor = VisioColors.Primary500)
+        } else {
+            Modifier
+        }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .then(borderMod)
-            .clip(RoundedCornerShape(8.dp))
-            .background(VisioColors.PrimaryDark50)
-            .clickable(onClick = onClick)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .then(borderMod)
+                .clip(RoundedCornerShape(8.dp))
+                .background(VisioColors.PrimaryDark50)
+                .clickable(onClick = onClick),
     ) {
         // Video surface or avatar fallback
         if (participant.hasVideo && participant.videoTrackSid != null) {
             val trackSid = participant.videoTrackSid!!
             AndroidView(
                 factory = { ctx -> VideoSurfaceView(ctx, trackSid) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         } else {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(avatarColor),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(avatarColor),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = initials,
                         color = VisioColors.White,
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
@@ -710,13 +744,14 @@ fun ParticipantTile(
 
         // Metadata bar at bottom
         Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .background(Color(0x99000000))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(Color(0x99000000))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             // Mic muted indicator
             if (participant.isMuted) {
@@ -724,30 +759,31 @@ fun ParticipantTile(
                     painter = painterResource(R.drawable.ri_mic_off_fill),
                     contentDescription = Strings.t("accessibility.muted", lang),
                     tint = VisioColors.Error500,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp),
                 )
             }
 
             // Hand raise badge
             if (handRaisePosition > 0) {
                 Row(
-                    modifier = Modifier
-                        .background(VisioColors.HandRaise, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                    modifier =
+                        Modifier
+                            .background(VisioColors.HandRaise, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ri_hand),
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(12.dp),
                     )
                     Text(
                         text = "$handRaisePosition",
                         color = Color.Black,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
@@ -759,7 +795,7 @@ fun ParticipantTile(
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
 
             // Connection quality bars
@@ -770,45 +806,51 @@ fun ParticipantTile(
 
 @Composable
 private fun ConnectionQualityBars(quality: String) {
-    val bars = when (quality) {
-        "Excellent" -> 3
-        "Good" -> 2
-        "Poor" -> 1
-        else -> 0
-    }
+    val bars =
+        when (quality) {
+            "Excellent" -> 3
+            "Good" -> 2
+            "Poor" -> 1
+            else -> 0
+        }
     Row(
         horizontalArrangement = Arrangement.spacedBy(1.dp),
-        verticalAlignment = Alignment.Bottom
+        verticalAlignment = Alignment.Bottom,
     ) {
         for (i in 1..3) {
             Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height((i * 4 + 2).dp)
-                    .background(
-                        if (i <= bars) Color.Green else VisioColors.Greyscale400,
-                        RoundedCornerShape(1.dp)
-                    )
+                modifier =
+                    Modifier
+                        .width(3.dp)
+                        .height((i * 4 + 2).dp)
+                        .background(
+                            if (i <= bars) Color.Green else VisioColors.Greyscale400,
+                            RoundedCornerShape(1.dp),
+                        ),
             )
         }
     }
 }
 
 @Composable
-private fun ConnectionStateBanner(state: ConnectionState, errorMessage: String?) {
+private fun ConnectionStateBanner(
+    state: ConnectionState,
+    errorMessage: String?,
+) {
     val lang = VisioManager.currentLang
     when {
         errorMessage != null -> {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(VisioColors.Error200)
-                    .padding(12.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(VisioColors.Error200)
+                        .padding(12.dp),
             ) {
                 Text(
                     text = "${Strings.t("call.error", lang)}: $errorMessage",
                     color = VisioColors.Error500,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }
@@ -816,16 +858,16 @@ private fun ConnectionStateBanner(state: ConnectionState, errorMessage: String?)
             Row(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    color = VisioColors.Primary500
+                    color = VisioColors.Primary500,
                 )
                 Text(
                     "${Strings.t("status.connecting", lang)}...",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
         }
@@ -833,20 +875,19 @@ private fun ConnectionStateBanner(state: ConnectionState, errorMessage: String?)
             Row(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    color = VisioColors.Primary500
+                    color = VisioColors.Primary500,
                 )
                 Text(
                     "${Strings.t("status.reconnecting", lang)} (${state.attempt})...",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
         }
         // Connected / Disconnected: no banner
     }
 }
-

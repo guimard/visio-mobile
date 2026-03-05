@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,10 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import io.visio.mobile.R
@@ -57,7 +57,7 @@ fun InCallSettingsSheet(
     onDismiss: () -> Unit,
     onSelectAudioDevice: (AudioDeviceInfo) -> Unit,
     onSwitchCamera: (Boolean) -> Unit,
-    isFrontCamera: Boolean
+    isFrontCamera: Boolean,
 ) {
     val context = LocalContext.current
     val lang = VisioManager.currentLang
@@ -72,76 +72,80 @@ fun InCallSettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = VisioColors.PrimaryDark75
+        containerColor = VisioColors.PrimaryDark75,
     ) {
         // Title
         Text(
             text = Strings.t("settings.incall", lang),
             style = MaterialTheme.typography.titleMedium,
             color = VisioColors.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
         ) {
             // Left sidebar: icon tabs
             Column(
-                modifier = Modifier
-                    .width(56.dp)
-                    .padding(top = 8.dp),
+                modifier =
+                    Modifier
+                        .width(56.dp)
+                        .padding(top = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 TabIcon(
                     iconRes = R.drawable.ri_mic_line,
                     label = Strings.t("settings.incall.micro", lang),
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 }
+                    onClick = { selectedTab = 0 },
                 )
                 TabIcon(
                     iconRes = R.drawable.ri_video_on_line,
                     label = Strings.t("settings.incall.camera", lang),
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 }
+                    onClick = { selectedTab = 1 },
                 )
                 TabIcon(
                     icon = Icons.Outlined.Notifications,
                     label = Strings.t("settings.incall.notifications", lang),
                     selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 }
+                    onClick = { selectedTab = 2 },
                 )
             }
 
             // Right content
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp, end = 8.dp, bottom = 32.dp)
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp, end = 8.dp, bottom = 32.dp),
             ) {
                 when (selectedTab) {
                     0 -> MicroTab(context, lang, onSelectAudioDevice)
                     1 -> CameraTab(lang, isFrontCamera, onSwitchCamera)
-                    2 -> NotificationsTab(
-                        lang = lang,
-                        notifParticipant = notifParticipant,
-                        notifHandRaised = notifHandRaised,
-                        notifMessage = notifMessage,
-                        onToggleParticipant = { enabled ->
-                            notifParticipant = enabled
-                            VisioManager.client.setNotificationParticipantJoin(enabled)
-                        },
-                        onToggleHandRaised = { enabled ->
-                            notifHandRaised = enabled
-                            VisioManager.client.setNotificationHandRaised(enabled)
-                        },
-                        onToggleMessage = { enabled ->
-                            notifMessage = enabled
-                            VisioManager.client.setNotificationMessageReceived(enabled)
-                        }
-                    )
+                    2 ->
+                        NotificationsTab(
+                            lang = lang,
+                            notifParticipant = notifParticipant,
+                            notifHandRaised = notifHandRaised,
+                            notifMessage = notifMessage,
+                            onToggleParticipant = { enabled ->
+                                notifParticipant = enabled
+                                VisioManager.client.setNotificationParticipantJoin(enabled)
+                            },
+                            onToggleHandRaised = { enabled ->
+                                notifHandRaised = enabled
+                                VisioManager.client.setNotificationHandRaised(enabled)
+                            },
+                            onToggleMessage = { enabled ->
+                                notifMessage = enabled
+                                VisioManager.client.setNotificationMessageReceived(enabled)
+                            },
+                        )
                 }
             }
         }
@@ -153,22 +157,23 @@ private fun TabIcon(
     iconRes: Int,
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier
-            .size(48.dp)
-            .background(
-                if (selected) VisioColors.Primary500 else VisioColors.PrimaryDark100,
-                RoundedCornerShape(8.dp)
-            )
+        modifier =
+            Modifier
+                .size(48.dp)
+                .background(
+                    if (selected) VisioColors.Primary500 else VisioColors.PrimaryDark100,
+                    RoundedCornerShape(8.dp),
+                ),
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = label,
             tint = VisioColors.White,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -178,22 +183,23 @@ private fun TabIcon(
     icon: ImageVector,
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier
-            .size(48.dp)
-            .background(
-                if (selected) VisioColors.Primary500 else VisioColors.PrimaryDark100,
-                RoundedCornerShape(8.dp)
-            )
+        modifier =
+            Modifier
+                .size(48.dp)
+                .background(
+                    if (selected) VisioColors.Primary500 else VisioColors.PrimaryDark100,
+                    RoundedCornerShape(8.dp),
+                ),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = VisioColors.White,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -202,7 +208,7 @@ private fun TabIcon(
 private fun MicroTab(
     context: Context,
     lang: String,
-    onSelectAudioDevice: (AudioDeviceInfo) -> Unit
+    onSelectAudioDevice: (AudioDeviceInfo) -> Unit,
 ) {
     val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -216,25 +222,29 @@ private fun MicroTab(
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 audioManager.communicationDevice?.id
-            } else null
+            } else {
+                null
+            },
         )
     }
 
     // React to device connect/disconnect events
     DisposableEffect(audioManager) {
-        val callback = object : AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
-                inputDevices = getFilteredInputDevices(audioManager)
-                outputDevices = getFilteredOutputDevices(audioManager)
-            }
-            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
-                inputDevices = getFilteredInputDevices(audioManager)
-                outputDevices = getFilteredOutputDevices(audioManager)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    activeDeviceId = audioManager.communicationDevice?.id
+        val callback =
+            object : AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                    inputDevices = getFilteredInputDevices(audioManager)
+                    outputDevices = getFilteredOutputDevices(audioManager)
+                }
+
+                override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                    inputDevices = getFilteredInputDevices(audioManager)
+                    outputDevices = getFilteredOutputDevices(audioManager)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        activeDeviceId = audioManager.communicationDevice?.id
+                    }
                 }
             }
-        }
         audioManager.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
         onDispose {
             audioManager.unregisterAudioDeviceCallback(callback)
@@ -244,9 +254,12 @@ private fun MicroTab(
     // Resolve which input is active: match by device ID, or for built-in mic
     // check if the communication device is also built-in (speaker/earpiece).
     fun isInputActive(device: AudioDeviceInfo): Boolean {
-        val commDevice = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            audioManager.communicationDevice
-        } else return false
+        val commDevice =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.communicationDevice
+            } else {
+                return false
+            }
         if (commDevice == null) return device.type == AudioDeviceInfo.TYPE_BUILTIN_MIC
         if (commDevice.id == device.id) return true
         // Built-in mic is active when communication device is any built-in device
@@ -260,14 +273,15 @@ private fun MicroTab(
         val label = audioDeviceLabel(device, lang)
         val isActive = isInputActive(device)
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    onSelectAudioDevice(device)
-                    activeDeviceId = device.id
-                }
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onSelectAudioDevice(device)
+                        activeDeviceId = device.id
+                    }
+                    .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             RadioButton(
                 selected = isActive,
@@ -275,16 +289,17 @@ private fun MicroTab(
                     onSelectAudioDevice(device)
                     activeDeviceId = device.id
                 },
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = VisioColors.Primary500,
-                    unselectedColor = VisioColors.White
-                )
+                colors =
+                    RadioButtonDefaults.colors(
+                        selectedColor = VisioColors.Primary500,
+                        unselectedColor = VisioColors.White,
+                    ),
             )
             Text(
                 text = label,
                 color = VisioColors.White,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -297,14 +312,15 @@ private fun MicroTab(
         val label = audioDeviceLabel(device, lang)
         val isActive = activeDeviceId == device.id
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    onSelectAudioDevice(device)
-                    activeDeviceId = device.id
-                }
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onSelectAudioDevice(device)
+                        activeDeviceId = device.id
+                    }
+                    .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             RadioButton(
                 selected = isActive,
@@ -312,16 +328,17 @@ private fun MicroTab(
                     onSelectAudioDevice(device)
                     activeDeviceId = device.id
                 },
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = VisioColors.Primary500,
-                    unselectedColor = VisioColors.White
-                )
+                colors =
+                    RadioButtonDefaults.colors(
+                        selectedColor = VisioColors.Primary500,
+                        unselectedColor = VisioColors.White,
+                    ),
             )
             Text(
                 text = label,
                 color = VisioColors.White,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -331,21 +348,22 @@ private fun MicroTab(
 private fun CameraTab(
     lang: String,
     isFrontCamera: Boolean,
-    onSwitchCamera: (Boolean) -> Unit
+    onSwitchCamera: (Boolean) -> Unit,
 ) {
     var selectedFront by remember { mutableStateOf(isFrontCamera) }
 
     SectionHeader(Strings.t("settings.incall.cameraSelect", lang))
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                selectedFront = true
-                onSwitchCamera(true)
-            }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    selectedFront = true
+                    onSwitchCamera(true)
+                }
+                .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(
             selected = selectedFront,
@@ -353,27 +371,29 @@ private fun CameraTab(
                 selectedFront = true
                 onSwitchCamera(true)
             },
-            colors = RadioButtonDefaults.colors(
-                selectedColor = VisioColors.Primary500,
-                unselectedColor = VisioColors.White
-            )
+            colors =
+                RadioButtonDefaults.colors(
+                    selectedColor = VisioColors.Primary500,
+                    unselectedColor = VisioColors.White,
+                ),
         )
         Text(
             text = Strings.t("settings.incall.cameraFront", lang),
             color = VisioColors.White,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                selectedFront = false
-                onSwitchCamera(false)
-            }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    selectedFront = false
+                    onSwitchCamera(false)
+                }
+                .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(
             selected = !selectedFront,
@@ -381,15 +401,16 @@ private fun CameraTab(
                 selectedFront = false
                 onSwitchCamera(false)
             },
-            colors = RadioButtonDefaults.colors(
-                selectedColor = VisioColors.Primary500,
-                unselectedColor = VisioColors.White
-            )
+            colors =
+                RadioButtonDefaults.colors(
+                    selectedColor = VisioColors.Primary500,
+                    unselectedColor = VisioColors.White,
+                ),
         )
         Text(
             text = Strings.t("settings.incall.cameraBack", lang),
             color = VisioColors.White,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
@@ -402,24 +423,24 @@ private fun NotificationsTab(
     notifMessage: Boolean,
     onToggleParticipant: (Boolean) -> Unit,
     onToggleHandRaised: (Boolean) -> Unit,
-    onToggleMessage: (Boolean) -> Unit
+    onToggleMessage: (Boolean) -> Unit,
 ) {
     SectionHeader(Strings.t("settings.incall.notifications", lang))
 
     NotificationRow(
         label = Strings.t("settings.incall.notifParticipant", lang),
         checked = notifParticipant,
-        onToggle = onToggleParticipant
+        onToggle = onToggleParticipant,
     )
     NotificationRow(
         label = Strings.t("settings.incall.notifHandRaised", lang),
         checked = notifHandRaised,
-        onToggle = onToggleHandRaised
+        onToggle = onToggleHandRaised,
     )
     NotificationRow(
         label = Strings.t("settings.incall.notifMessage", lang),
         checked = notifMessage,
-        onToggle = onToggleMessage
+        onToggle = onToggleMessage,
     )
 }
 
@@ -427,28 +448,30 @@ private fun NotificationsTab(
 private fun NotificationRow(
     label: String,
     checked: Boolean,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
             text = label,
             color = VisioColors.White,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
         Switch(
             checked = checked,
             onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(
-                checkedTrackColor = VisioColors.Primary500,
-                uncheckedTrackColor = VisioColors.PrimaryDark100
-            )
+            colors =
+                SwitchDefaults.colors(
+                    checkedTrackColor = VisioColors.Primary500,
+                    uncheckedTrackColor = VisioColors.PrimaryDark100,
+                ),
         )
     }
 }
@@ -459,37 +482,41 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = VisioColors.White,
-        modifier = Modifier.padding(bottom = 8.dp)
+        modifier = Modifier.padding(bottom = 8.dp),
     )
 }
 
-private val BUILTIN_TYPES = setOf(
-    AudioDeviceInfo.TYPE_BUILTIN_MIC,
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
-    AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-)
+private val BUILTIN_TYPES =
+    setOf(
+        AudioDeviceInfo.TYPE_BUILTIN_MIC,
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+    )
 
-private val BLUETOOTH_TYPES = setOf(
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-    AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-)
+private val BLUETOOTH_TYPES =
+    setOf(
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+    )
 
-private val INPUT_TYPES = listOf(
-    AudioDeviceInfo.TYPE_BUILTIN_MIC,
-    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-    AudioDeviceInfo.TYPE_USB_HEADSET,
-    AudioDeviceInfo.TYPE_WIRED_HEADSET
-)
+private val INPUT_TYPES =
+    listOf(
+        AudioDeviceInfo.TYPE_BUILTIN_MIC,
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+        AudioDeviceInfo.TYPE_USB_HEADSET,
+        AudioDeviceInfo.TYPE_WIRED_HEADSET,
+    )
 
-private val OUTPUT_TYPES = listOf(
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
-    AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-    AudioDeviceInfo.TYPE_WIRED_HEADSET,
-    AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-    AudioDeviceInfo.TYPE_USB_HEADSET
-)
+private val OUTPUT_TYPES =
+    listOf(
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+        AudioDeviceInfo.TYPE_WIRED_HEADSET,
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+        AudioDeviceInfo.TYPE_USB_HEADSET,
+    )
 
 private fun getFilteredInputDevices(audioManager: AudioManager): List<AudioDeviceInfo> {
     val seenBuiltinTypes = mutableSetOf<Int>()
@@ -521,11 +548,16 @@ private fun getFilteredOutputDevices(audioManager: AudioManager): List<AudioDevi
                 } else {
                     seenBtNames.add(name) // returns false if already present
                 }
-            } else true
+            } else {
+                true
+            }
         }
 }
 
-private fun audioDeviceLabel(device: AudioDeviceInfo, lang: String): String {
+private fun audioDeviceLabel(
+    device: AudioDeviceInfo,
+    lang: String,
+): String {
     return if (device.type in BUILTIN_TYPES) {
         audioDeviceTypeName(device.type, lang)
     } else {
@@ -534,14 +566,18 @@ private fun audioDeviceLabel(device: AudioDeviceInfo, lang: String): String {
     }
 }
 
-private fun audioDeviceTypeName(type: Int, lang: String): String = when (type) {
-    AudioDeviceInfo.TYPE_BUILTIN_MIC -> Strings.t("device.microphone", lang)
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> Strings.t("audio.speaker", lang)
-    AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> Strings.t("audio.earpiece", lang)
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> Strings.t("audio.bluetooth", lang)
-    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> Strings.t("audio.bluetooth", lang)
-    AudioDeviceInfo.TYPE_WIRED_HEADSET -> Strings.t("audio.wiredHeadset", lang)
-    AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> Strings.t("audio.wiredHeadphones", lang)
-    AudioDeviceInfo.TYPE_USB_HEADSET -> Strings.t("audio.usbHeadset", lang)
-    else -> Strings.t("audio.device", lang)
-}
+private fun audioDeviceTypeName(
+    type: Int,
+    lang: String,
+): String =
+    when (type) {
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> Strings.t("device.microphone", lang)
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> Strings.t("audio.speaker", lang)
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> Strings.t("audio.earpiece", lang)
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> Strings.t("audio.bluetooth", lang)
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> Strings.t("audio.bluetooth", lang)
+        AudioDeviceInfo.TYPE_WIRED_HEADSET -> Strings.t("audio.wiredHeadset", lang)
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> Strings.t("audio.wiredHeadphones", lang)
+        AudioDeviceInfo.TYPE_USB_HEADSET -> Strings.t("audio.usbHeadset", lang)
+        else -> Strings.t("audio.device", lang)
+    }

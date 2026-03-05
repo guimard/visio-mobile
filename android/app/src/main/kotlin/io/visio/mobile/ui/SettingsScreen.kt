@@ -4,14 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,9 +55,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    onBack: () -> Unit
-) {
+fun SettingsScreen(onBack: () -> Unit) {
     var displayName by remember { mutableStateOf("") }
     var language by remember { mutableStateOf(Strings.detectSystemLang()) }
     var theme by remember { mutableStateOf("light") }
@@ -83,15 +79,17 @@ fun SettingsScreen(
             micOnJoin = settings.micEnabledOnJoin
             cameraOnJoin = settings.cameraEnabledOnJoin
             meetInstances = VisioManager.client.getMeetInstances()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
     ) {
         TopAppBar(
             title = {
@@ -102,45 +100,53 @@ fun SettingsScreen(
                     Icon(
                         painter = painterResource(R.drawable.ri_arrow_left_s_line),
                         contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+            colors =
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
         )
 
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             // Profile section
             SectionHeader(Strings.t("settings.profile", lang), isDark)
             Text(
                 text = Strings.t("settings.displayName", lang),
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary
+                color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
             )
             TextField(
                 value = displayName,
                 onValueChange = { displayName = it },
-                placeholder = { Text(Strings.t("home.displayName.placeholder", lang), color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary) },
+                placeholder = {
+                    Text(
+                        Strings.t("home.displayName.placeholder", lang),
+                        color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
+                    )
+                },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    cursorColor = VisioColors.Primary500,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(12.dp)
+                colors =
+                    TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        cursorColor = VisioColors.Primary500,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                shape = RoundedCornerShape(12.dp),
             )
 
             // Join meeting section
@@ -149,13 +155,13 @@ fun SettingsScreen(
                 label = Strings.t("settings.micOnJoin", lang),
                 checked = micOnJoin,
                 onCheckedChange = { micOnJoin = it },
-                isDark = isDark
+                isDark = isDark,
             )
             SettingsToggle(
                 label = Strings.t("settings.camOnJoin", lang),
                 checked = cameraOnJoin,
                 onCheckedChange = { cameraOnJoin = it },
-                isDark = isDark
+                isDark = isDark,
             )
 
             // Theme section
@@ -177,43 +183,44 @@ fun SettingsScreen(
                 onSelect = {
                     language = it
                     VisioManager.setLanguage(it)
-                }
+                },
             )
 
             // Meet instances section
             SectionHeader(Strings.t("settings.meetInstances", lang), isDark)
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
-                        RoundedCornerShape(12.dp)
-                    )
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 meetInstances.forEachIndexed { index, instance ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = instance,
                             style = MaterialTheme.typography.bodyLarge,
                             color = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         IconButton(
                             onClick = {
                                 meetInstances = meetInstances.toMutableList().also { it.removeAt(index) }
                             },
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(32.dp),
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ri_close_line),
                                 contentDescription = "Remove",
-                                tint = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary
+                                tint = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
                             )
                         }
                     }
@@ -222,7 +229,7 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextField(
                     value = newInstance,
@@ -230,21 +237,22 @@ fun SettingsScreen(
                     placeholder = {
                         Text(
                             Strings.t("settings.addInstance", lang),
-                            color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary
+                            color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
                         )
                     },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        cursorColor = VisioColors.Primary500,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                    colors =
+                        TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            cursorColor = VisioColors.Primary500,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                    shape = RoundedCornerShape(12.dp),
                 )
                 IconButton(
                     onClick = {
@@ -253,12 +261,12 @@ fun SettingsScreen(
                             meetInstances = meetInstances + trimmed
                             newInstance = ""
                         }
-                    }
+                    },
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ri_add_line),
                         contentDescription = "Add",
-                        tint = VisioColors.Primary500
+                        tint = VisioColors.Primary500,
                     )
                 }
             }
@@ -274,19 +282,22 @@ fun SettingsScreen(
                         VisioManager.client.setMicEnabledOnJoin(micOnJoin)
                         VisioManager.client.setCameraEnabledOnJoin(cameraOnJoin)
                         VisioManager.client.setMeetInstances(meetInstances)
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                 }
                 VisioManager.updateDisplayName(displayName)
                 onBack()
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = VisioColors.Primary500,
-                contentColor = VisioColors.White
-            ),
-            shape = RoundedCornerShape(12.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = VisioColors.Primary500,
+                    contentColor = VisioColors.White,
+                ),
+            shape = RoundedCornerShape(12.dp),
         ) {
             Text(Strings.t("settings.save", lang), modifier = Modifier.padding(vertical = 4.dp))
         }
@@ -294,11 +305,14 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SectionHeader(title: String, isDark: Boolean) {
+private fun SectionHeader(
+    title: String,
+    isDark: Boolean,
+) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
-        color = if (isDark) VisioColors.White else VisioColors.LightOnBackground
+        color = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
     )
 }
 
@@ -307,33 +321,35 @@ private fun SettingsToggle(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    isDark: Boolean
+    isDark: Boolean,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
-                RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
+                    RoundedCornerShape(12.dp),
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = if (isDark) VisioColors.White else VisioColors.LightOnBackground
+            color = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
         )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = VisioColors.White,
-                checkedTrackColor = VisioColors.Primary500,
-                uncheckedThumbColor = VisioColors.Greyscale400,
-                uncheckedTrackColor = if (isDark) VisioColors.PrimaryDark300 else VisioColors.LightBorder
-            )
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = VisioColors.White,
+                    checkedTrackColor = VisioColors.Primary500,
+                    uncheckedThumbColor = VisioColors.Greyscale400,
+                    uncheckedTrackColor = if (isDark) VisioColors.PrimaryDark300 else VisioColors.LightBorder,
+                ),
         )
     }
 }
@@ -343,51 +359,53 @@ private fun SettingsToggle(
 private fun LanguageDropdown(
     selected: String,
     isDark: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it }
+        onExpandedChange = { expanded = it },
     ) {
         TextField(
             value = Strings.t("lang.$selected", selected),
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
-                unfocusedContainerColor = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
-                focusedTextColor = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
-                unfocusedTextColor = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedTrailingIconColor = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
-                unfocusedTrailingIconColor = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary
-            ),
-            shape = RoundedCornerShape(12.dp)
+            modifier =
+                Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+            colors =
+                TextFieldDefaults.colors(
+                    focusedContainerColor = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
+                    unfocusedContainerColor = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
+                    focusedTextColor = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
+                    unfocusedTextColor = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTrailingIconColor = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
+                    unfocusedTrailingIconColor = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
+                ),
+            shape = RoundedCornerShape(12.dp),
         )
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            containerColor = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant
+            containerColor = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
         ) {
             Strings.supportedLangs.forEach { code ->
                 DropdownMenuItem(
                     text = {
                         Text(
                             Strings.t("lang.$code", code),
-                            color = if (isDark) VisioColors.White else VisioColors.LightOnBackground
+                            color = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
                         )
                     },
                     onClick = {
                         onSelect(code)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
@@ -400,36 +418,38 @@ private fun ThemeOption(
     value: String,
     selected: String,
     isDark: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(
-                selected = value == selected,
-                onClick = { onSelect(value) },
-                role = Role.RadioButton
-            )
-            .background(
-                if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
-                RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = value == selected,
+                    onClick = { onSelect(value) },
+                    role = Role.RadioButton,
+                )
+                .background(
+                    if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
+                    RoundedCornerShape(12.dp),
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         RadioButton(
             selected = value == selected,
             onClick = null,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = VisioColors.Primary500,
-                unselectedColor = VisioColors.Greyscale400
-            )
+            colors =
+                RadioButtonDefaults.colors(
+                    selectedColor = VisioColors.Primary500,
+                    unselectedColor = VisioColors.Greyscale400,
+                ),
         )
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = if (isDark) VisioColors.White else VisioColors.LightOnBackground
+            color = if (isDark) VisioColors.White else VisioColors.LightOnBackground,
         )
     }
 }

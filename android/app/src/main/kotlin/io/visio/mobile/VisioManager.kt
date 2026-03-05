@@ -2,6 +2,7 @@ package io.visio.mobile
 
 import android.content.Context
 import android.media.AudioManager
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,7 +12,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import android.util.Log
 import kotlinx.coroutines.launch
 import uniffi.visio.ChatMessage
 import uniffi.visio.ConnectionState
@@ -21,7 +21,6 @@ import uniffi.visio.VisioEvent
 import uniffi.visio.VisioEventListener
 
 object VisioManager : VisioEventListener {
-
     // Library loaded and WebRTC initialized by VisioApplication.onCreate()
     private lateinit var _client: VisioClient
     val client: VisioClient get() = _client
@@ -31,8 +30,10 @@ object VisioManager : VisioEventListener {
 
     // Camera capture (Camera2 -> JNI -> NativeVideoSource)
     private var cameraCapture: CameraCapture? = null
+
     // Audio capture (AudioRecord -> JNI -> NativeAudioSource)
     private var audioCapture: AudioCapture? = null
+
     // Audio playout (Rust playout buffer -> JNI -> AudioTrack)
     private var audioPlayout: AudioPlayout? = null
     private lateinit var appContext: Context
@@ -86,7 +87,8 @@ object VisioManager : VisioEventListener {
             currentLang = settings.language ?: "fr"
             currentTheme = settings.theme ?: "light"
             displayName = settings.displayName ?: ""
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         initialized = true
     }
 
@@ -241,7 +243,10 @@ object VisioManager : VisioEventListener {
             }
             is VisioEvent.TrackSubscribed -> {
                 val info = event.info
-                Log.d("VISIO", "TrackSubscribed: participant=${info.participantSid} kind=${info.kind} source=${info.source} trackSid=${info.sid}")
+                Log.d(
+                    "VISIO",
+                    "TrackSubscribed: participant=${info.participantSid} kind=${info.kind} source=${info.source} trackSid=${info.sid}",
+                )
                 refreshParticipants()
             }
             is VisioEvent.TrackUnsubscribed -> {

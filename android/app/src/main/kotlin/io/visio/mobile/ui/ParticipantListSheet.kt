@@ -3,7 +3,6 @@ package io.visio.mobile.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,7 +46,7 @@ fun ParticipantListSheet(
     localIsHandRaised: Boolean,
     handRaisedMap: Map<String, Int>,
     lang: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
@@ -57,61 +56,65 @@ fun ParticipantListSheet(
     // Sort remaining participants: hand raised first, then alphabetically.
     val localP = participants.firstOrNull()
     val remoteParticipants = participants.drop(1)
-    val sorted = remoteParticipants.sortedWith(
-        compareByDescending<ParticipantInfo> { handRaisedMap[it.sid] != null }
-            .thenBy { handRaisedMap[it.sid] ?: Int.MAX_VALUE }
-            .thenBy { (it.name ?: it.identity).lowercase() }
-    )
+    val sorted =
+        remoteParticipants.sortedWith(
+            compareByDescending<ParticipantInfo> { handRaisedMap[it.sid] != null }
+                .thenBy { handRaisedMap[it.sid] ?: Int.MAX_VALUE }
+                .thenBy { (it.name ?: it.identity).lowercase() },
+        )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = VisioColors.PrimaryDark75
+        containerColor = VisioColors.PrimaryDark75,
     ) {
         // Header
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "${Strings.t("participants.title", lang)} ($totalCount)",
                 color = VisioColors.White,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
             IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                 Icon(
                     painter = painterResource(R.drawable.ri_close_line),
                     contentDescription = Strings.t("participants.close", lang),
                     tint = VisioColors.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
 
         // Participant list
         LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             // Local participant (always first)
             if (localP != null) {
                 item(key = localP.sid) {
-                    val name = localDisplayName.ifBlank {
-                        localP.name ?: Strings.t("call.you", lang)
-                    }
+                    val name =
+                        localDisplayName.ifBlank {
+                            localP.name ?: Strings.t("call.you", lang)
+                        }
                     ParticipantRow(
                         name = name,
                         suffix = "(${Strings.t("call.you", lang)})",
                         isMuted = !localMicEnabled,
                         hasVideo = localCameraEnabled,
                         handRaisePosition = if (localIsHandRaised) 1 else 0,
-                        qualityName = "Excellent"
+                        qualityName = "Excellent",
                     )
                 }
             }
@@ -124,7 +127,7 @@ fun ParticipantListSheet(
                     isMuted = p.isMuted,
                     hasVideo = p.hasVideo,
                     handRaisePosition = handRaisedMap[p.sid] ?: 0,
-                    qualityName = p.connectionQuality.name
+                    qualityName = p.connectionQuality.name,
                 )
             }
         }
@@ -140,38 +143,41 @@ private fun ParticipantRow(
     isMuted: Boolean,
     hasVideo: Boolean,
     handRaisePosition: Int,
-    qualityName: String
+    qualityName: String,
 ) {
-    val initials = name
-        .split(" ")
-        .mapNotNull { it.firstOrNull()?.uppercase() }
-        .take(2)
-        .joinToString("")
-        .ifEmpty { "?" }
+    val initials =
+        name
+            .split(" ")
+            .mapNotNull { it.firstOrNull()?.uppercase() }
+            .take(2)
+            .joinToString("")
+            .ifEmpty { "?" }
 
     val hue = name.fold(0) { acc, c -> acc + c.code }.absoluteValue % 360
     val avatarColor = Color.hsl(hue.toFloat(), 0.5f, 0.35f)
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Avatar
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(avatarColor),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(avatarColor),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = initials,
                 color = VisioColors.White,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
 
@@ -179,7 +185,7 @@ private fun ParticipantRow(
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = name,
@@ -187,14 +193,14 @@ private fun ParticipantRow(
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
+                modifier = Modifier.weight(1f, fill = false),
             )
             if (suffix != null) {
                 Text(
                     text = suffix,
                     color = VisioColors.Greyscale400,
                     fontSize = 13.sp,
-                    maxLines = 1
+                    maxLines = 1,
                 )
             }
         }
@@ -202,7 +208,7 @@ private fun ParticipantRow(
         // Status icons
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             // Mic muted
             if (isMuted) {
@@ -210,7 +216,7 @@ private fun ParticipantRow(
                     painter = painterResource(R.drawable.ri_mic_off_fill),
                     contentDescription = null,
                     tint = VisioColors.Error500,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
 
@@ -220,30 +226,31 @@ private fun ParticipantRow(
                     painter = painterResource(R.drawable.ri_video_off_fill),
                     contentDescription = null,
                     tint = VisioColors.Error500,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
 
             // Hand raised
             if (handRaisePosition > 0) {
                 Row(
-                    modifier = Modifier
-                        .background(VisioColors.HandRaise, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                    modifier =
+                        Modifier
+                            .background(VisioColors.HandRaise, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ri_hand),
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(12.dp),
                     )
                     Text(
                         text = "$handRaisePosition",
                         color = Color.Black,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
@@ -256,25 +263,27 @@ private fun ParticipantRow(
 
 @Composable
 private fun ConnectionQualityBarsSmall(quality: String) {
-    val bars = when (quality) {
-        "Excellent" -> 3
-        "Good" -> 2
-        "Poor" -> 1
-        else -> 0
-    }
+    val bars =
+        when (quality) {
+            "Excellent" -> 3
+            "Good" -> 2
+            "Poor" -> 1
+            else -> 0
+        }
     Row(
         horizontalArrangement = Arrangement.spacedBy(1.dp),
-        verticalAlignment = Alignment.Bottom
+        verticalAlignment = Alignment.Bottom,
     ) {
         for (i in 1..3) {
             Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height((i * 3 + 2).dp)
-                    .background(
-                        if (i <= bars) Color.Green else VisioColors.Greyscale400,
-                        RoundedCornerShape(1.dp)
-                    )
+                modifier =
+                    Modifier
+                        .width(3.dp)
+                        .height((i * 3 + 2).dp)
+                        .background(
+                            if (i <= bars) Color.Green else VisioColors.Greyscale400,
+                            RoundedCornerShape(1.dp),
+                        ),
             )
         }
     }

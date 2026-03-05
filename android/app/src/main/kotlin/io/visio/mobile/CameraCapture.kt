@@ -22,7 +22,6 @@ import android.view.Display
  * Lifecycle: [start] → frames flow → [stop].
  */
 class CameraCapture(private val context: Context) {
-
     companion object {
         private const val TAG = "CameraCapture"
         private const val WIDTH = 640
@@ -64,65 +63,78 @@ class CameraCapture(private val context: Context) {
         Log.i(TAG, "Camera $cameraId: sensorOrientation=$sensorOrientation, front=$isFrontCamera")
 
         // ImageReader receives YUV_420_888 frames
-        imageReader = ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, MAX_IMAGES).apply {
-            setOnImageAvailableListener({ reader ->
-                val image = reader.acquireLatestImage() ?: run {
-                    Log.w(TAG, "acquireLatestImage returned null")
-                    return@setOnImageAvailableListener
-                }
-                try {
-                    val yPlane = image.planes[0]
-                    val uPlane = image.planes[1]
-                    val vPlane = image.planes[2]
+        imageReader =
+            ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, MAX_IMAGES).apply {
+                setOnImageAvailableListener({ reader ->
+                    val image =
+                        reader.acquireLatestImage() ?: run {
+                            Log.w(TAG, "acquireLatestImage returned null")
+                            return@setOnImageAvailableListener
+                        }
+                    try {
+                        val yPlane = image.planes[0]
+                        val uPlane = image.planes[1]
+                        val vPlane = image.planes[2]
 
-                    // Compensate for device orientation so the self-view
-                    // is always upright. Display.rotation is 0/1/2/3.
-                    val displayDegrees = (displayManager
-                        .getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: 0) * 90
-                    val rotation = if (isFrontCamera) {
-                        (sensorOrientation + displayDegrees) % 360
-                    } else {
-                        (sensorOrientation - displayDegrees + 360) % 360
+                        // Compensate for device orientation so the self-view
+                        // is always upright. Display.rotation is 0/1/2/3.
+                        val displayDegrees =
+                            (
+                                displayManager
+                                    .getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: 0
+                            ) * 90
+                        val rotation =
+                            if (isFrontCamera) {
+                                (sensorOrientation + displayDegrees) % 360
+                            } else {
+                                (sensorOrientation - displayDegrees + 360) % 360
+                            }
+
+                        NativeVideo.nativePushCameraFrame(
+                            yPlane.buffer,
+                            uPlane.buffer,
+                            vPlane.buffer,
+                            yPlane.rowStride,
+                            uPlane.rowStride,
+                            vPlane.rowStride,
+                            uPlane.pixelStride,
+                            vPlane.pixelStride,
+                            image.width,
+                            image.height,
+                            rotation,
+                        )
+                    } finally {
+                        image.close()
                     }
+                }, handler)
+            }
 
-                    NativeVideo.nativePushCameraFrame(
-                        yPlane.buffer,
-                        uPlane.buffer,
-                        vPlane.buffer,
-                        yPlane.rowStride,
-                        uPlane.rowStride,
-                        vPlane.rowStride,
-                        uPlane.pixelStride,
-                        vPlane.pixelStride,
-                        image.width,
-                        image.height,
-                        rotation
-                    )
-                } finally {
-                    image.close()
+        cameraManager.openCamera(
+            cameraId,
+            object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    Log.i(TAG, "Camera opened: ${camera.id}")
+                    cameraDevice = camera
+                    createCaptureSession(camera)
                 }
-            }, handler)
-        }
 
-        cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                Log.i(TAG, "Camera opened: ${camera.id}")
-                cameraDevice = camera
-                createCaptureSession(camera)
-            }
+                override fun onDisconnected(camera: CameraDevice) {
+                    Log.w(TAG, "Camera disconnected")
+                    camera.close()
+                    cameraDevice = null
+                }
 
-            override fun onDisconnected(camera: CameraDevice) {
-                Log.w(TAG, "Camera disconnected")
-                camera.close()
-                cameraDevice = null
-            }
-
-            override fun onError(camera: CameraDevice, error: Int) {
-                Log.e(TAG, "Camera error: $error")
-                camera.close()
-                cameraDevice = null
-            }
-        }, handler)
+                override fun onError(
+                    camera: CameraDevice,
+                    error: Int,
+                ) {
+                    Log.e(TAG, "Camera error: $error")
+                    camera.close()
+                    cameraDevice = null
+                }
+            },
+            handler,
+        )
     }
 
     fun stop() {
@@ -175,49 +187,63 @@ class CameraCapture(private val context: Context) {
         Log.i(TAG, "Switching to camera $newId: sensorOrientation=$sensorOrientation, front=$isFrontCamera")
 
         // Recreate ImageReader
-        imageReader = ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, MAX_IMAGES).apply {
-            setOnImageAvailableListener({ reader ->
-                val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
-                try {
-                    val yPlane = image.planes[0]
-                    val uPlane = image.planes[1]
-                    val vPlane = image.planes[2]
-                    val displayDegrees = (displayManager
-                        .getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: 0) * 90
-                    val rotation = if (isFrontCamera) {
-                        (sensorOrientation + displayDegrees) % 360
-                    } else {
-                        (sensorOrientation - displayDegrees + 360) % 360
+        imageReader =
+            ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, MAX_IMAGES).apply {
+                setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                    try {
+                        val yPlane = image.planes[0]
+                        val uPlane = image.planes[1]
+                        val vPlane = image.planes[2]
+                        val displayDegrees =
+                            (
+                                displayManager
+                                    .getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: 0
+                            ) * 90
+                        val rotation =
+                            if (isFrontCamera) {
+                                (sensorOrientation + displayDegrees) % 360
+                            } else {
+                                (sensorOrientation - displayDegrees + 360) % 360
+                            }
+                        NativeVideo.nativePushCameraFrame(
+                            yPlane.buffer, uPlane.buffer, vPlane.buffer,
+                            yPlane.rowStride, uPlane.rowStride, vPlane.rowStride,
+                            uPlane.pixelStride, vPlane.pixelStride,
+                            image.width, image.height, rotation,
+                        )
+                    } finally {
+                        image.close()
                     }
-                    NativeVideo.nativePushCameraFrame(
-                        yPlane.buffer, uPlane.buffer, vPlane.buffer,
-                        yPlane.rowStride, uPlane.rowStride, vPlane.rowStride,
-                        uPlane.pixelStride, vPlane.pixelStride,
-                        image.width, image.height, rotation
-                    )
-                } finally {
-                    image.close()
-                }
-            }, handler)
-        }
+                }, handler)
+            }
 
         // Open new camera
-        cameraManager.openCamera(newId, object : CameraDevice.StateCallback() {
-            override fun onOpened(camera: CameraDevice) {
-                Log.i(TAG, "Switched camera opened: ${camera.id}")
-                cameraDevice = camera
-                createCaptureSession(camera)
-            }
-            override fun onDisconnected(camera: CameraDevice) {
-                camera.close()
-                cameraDevice = null
-            }
-            override fun onError(camera: CameraDevice, error: Int) {
-                Log.e(TAG, "Camera switch error: $error")
-                camera.close()
-                cameraDevice = null
-            }
-        }, handler)
+        cameraManager.openCamera(
+            newId,
+            object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    Log.i(TAG, "Switched camera opened: ${camera.id}")
+                    cameraDevice = camera
+                    createCaptureSession(camera)
+                }
+
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    cameraDevice = null
+                }
+
+                override fun onError(
+                    camera: CameraDevice,
+                    error: Int,
+                ) {
+                    Log.e(TAG, "Camera switch error: $error")
+                    camera.close()
+                    cameraDevice = null
+                }
+            },
+            handler,
+        )
     }
 
     /** Returns true if currently using front camera. */
@@ -238,10 +264,11 @@ class CameraCapture(private val context: Context) {
                     }
                     captureSession = session
 
-                    val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-                        addTarget(surface)
-                        set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-                    }.build()
+                    val request =
+                        camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+                            addTarget(surface)
+                            set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                        }.build()
 
                     session.setRepeatingRequest(request, null, handler)
                     Log.i(TAG, "Camera capture session started")
@@ -251,7 +278,7 @@ class CameraCapture(private val context: Context) {
                     Log.e(TAG, "Camera capture session configuration failed")
                 }
             },
-            handler
+            handler,
         )
     }
 

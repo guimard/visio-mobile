@@ -13,12 +13,12 @@ import java.nio.ByteOrder
  * into the Rust NativeAudioSource via JNI.
  */
 class AudioCapture {
-
     companion object {
         private const val TAG = "AudioCapture"
         private const val SAMPLE_RATE = 48000
         private const val CHANNELS = 1
         private const val FRAME_SIZE_MS = 10
+
         // 480 samples per 10ms frame at 48kHz mono
         private const val SAMPLES_PER_FRAME = SAMPLE_RATE * FRAME_SIZE_MS / 1000 * CHANNELS
     }
@@ -32,61 +32,65 @@ class AudioCapture {
         if (running) return
         running = true
 
-        recordThread = Thread({
-            val bufferSize = maxOf(
-                AudioRecord.getMinBufferSize(
-                    SAMPLE_RATE,
-                    AudioFormat.CHANNEL_IN_MONO,
-                    AudioFormat.ENCODING_PCM_16BIT
-                ),
-                SAMPLES_PER_FRAME * 2 // 2 bytes per i16 sample
-            )
-
-            val recorder = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize
-            )
-
-            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioRecord failed to initialize")
-                running = false
-                return@Thread
-            }
-
-            // Direct ByteBuffer for JNI zero-copy
-            val buffer = ByteBuffer.allocateDirect(SAMPLES_PER_FRAME * 2)
-            buffer.order(ByteOrder.nativeOrder())
-            val shortBuffer = buffer.asShortBuffer()
-
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-
-            recorder.startRecording()
-            Log.i(TAG, "Audio capture started: ${SAMPLE_RATE}Hz mono, ${FRAME_SIZE_MS}ms frames")
-
-            val tempArray = ShortArray(SAMPLES_PER_FRAME)
-
-            while (running) {
-                val read = recorder.read(tempArray, 0, SAMPLES_PER_FRAME)
-                if (read > 0) {
-                    buffer.clear()
-                    shortBuffer.clear()
-                    shortBuffer.put(tempArray, 0, read)
-                    buffer.position(0)
-                    buffer.limit(read * 2)
-
-                    NativeVideo.nativePushAudioFrame(
-                        buffer, read, SAMPLE_RATE, CHANNELS
+        recordThread =
+            Thread({
+                val bufferSize =
+                    maxOf(
+                        AudioRecord.getMinBufferSize(
+                            SAMPLE_RATE,
+                            AudioFormat.CHANNEL_IN_MONO,
+                            AudioFormat.ENCODING_PCM_16BIT,
+                        ),
+                        // 2 bytes per i16 sample
+                        SAMPLES_PER_FRAME * 2,
                     )
-                }
-            }
 
-            recorder.stop()
-            recorder.release()
-            Log.i(TAG, "Audio capture stopped")
-        }, "AudioCapture").also { it.start() }
+                val recorder =
+                    AudioRecord(
+                        MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                        SAMPLE_RATE,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        bufferSize,
+                    )
+
+                if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+                    Log.e(TAG, "AudioRecord failed to initialize")
+                    running = false
+                    return@Thread
+                }
+
+                // Direct ByteBuffer for JNI zero-copy
+                val buffer = ByteBuffer.allocateDirect(SAMPLES_PER_FRAME * 2)
+                buffer.order(ByteOrder.nativeOrder())
+                val shortBuffer = buffer.asShortBuffer()
+
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
+
+                recorder.startRecording()
+                Log.i(TAG, "Audio capture started: ${SAMPLE_RATE}Hz mono, ${FRAME_SIZE_MS}ms frames")
+
+                val tempArray = ShortArray(SAMPLES_PER_FRAME)
+
+                while (running) {
+                    val read = recorder.read(tempArray, 0, SAMPLES_PER_FRAME)
+                    if (read > 0) {
+                        buffer.clear()
+                        shortBuffer.clear()
+                        shortBuffer.put(tempArray, 0, read)
+                        buffer.position(0)
+                        buffer.limit(read * 2)
+
+                        NativeVideo.nativePushAudioFrame(
+                            buffer, read, SAMPLE_RATE, CHANNELS,
+                        )
+                    }
+                }
+
+                recorder.stop()
+                recorder.release()
+                Log.i(TAG, "Audio capture stopped")
+            }, "AudioCapture").also { it.start() }
     }
 
     fun stop() {

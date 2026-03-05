@@ -5,7 +5,6 @@ import android.util.Log
 import io.visio.mobile.ui.i18n.Strings
 
 class VisioApplication : Application() {
-
     companion object {
         init {
             System.loadLibrary("visio_ffi")
