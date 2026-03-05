@@ -1,8 +1,8 @@
+use livekit::data_stream::StreamTextOptions;
+use livekit::prelude::*;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use tokio::sync::Mutex;
-use livekit::prelude::*;
-use livekit::data_stream::StreamTextOptions;
 
 use crate::errors::VisioError;
 use crate::events::{ChatMessage, EventEmitter, VisioEvent};
@@ -23,7 +23,11 @@ pub struct ChatService {
 }
 
 impl ChatService {
-    pub fn new(room: Arc<Mutex<Option<Arc<Room>>>>, emitter: EventEmitter, messages: MessageStore) -> Self {
+    pub fn new(
+        room: Arc<Mutex<Option<Arc<Room>>>>,
+        emitter: EventEmitter,
+        messages: MessageStore,
+    ) -> Self {
         Self {
             room,
             emitter,
@@ -61,7 +65,8 @@ impl ChatService {
         };
 
         self.messages.lock().await.push(msg.clone());
-        self.emitter.emit(VisioEvent::ChatMessageReceived(msg.clone()));
+        self.emitter
+            .emit(VisioEvent::ChatMessageReceived(msg.clone()));
 
         Ok(msg)
     }

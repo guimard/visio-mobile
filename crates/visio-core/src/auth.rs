@@ -135,8 +135,7 @@ mod tests {
 
     #[test]
     fn parse_meet_url_without_scheme() {
-        let (instance, slug) =
-            AuthService::parse_meet_url("meet.example.com/room-123").unwrap();
+        let (instance, slug) = AuthService::parse_meet_url("meet.example.com/room-123").unwrap();
         assert_eq!(instance, "meet.example.com");
         assert_eq!(slug, "room-123");
     }
@@ -177,8 +176,7 @@ mod tests {
 
     #[test]
     fn extract_slug_from_url_with_trailing_slash() {
-        let slug =
-            AuthService::extract_slug("https://meet.example.com/abc-defg-hij/").unwrap();
+        let slug = AuthService::extract_slug("https://meet.example.com/abc-defg-hij/").unwrap();
         assert_eq!(slug, "abc-defg-hij");
     }
 }

@@ -13,6 +13,12 @@ pub struct ParticipantManager {
     local_sid: Option<String>,
 }
 
+impl Default for ParticipantManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ParticipantManager {
     pub fn new() -> Self {
         Self {
@@ -93,7 +99,10 @@ mod tests {
         let mut mgr = ParticipantManager::new();
         mgr.add_participant(make_participant("p1", "Alice"));
         assert_eq!(mgr.participant_count(), 1);
-        assert_eq!(mgr.participant("p1").unwrap().name.as_deref(), Some("Alice"));
+        assert_eq!(
+            mgr.participant("p1").unwrap().name.as_deref(),
+            Some("Alice")
+        );
     }
 
     #[test]
@@ -133,5 +142,60 @@ mod tests {
         assert_eq!(mgr.participant_count(), 0);
         assert!(mgr.active_speakers().is_empty());
         assert!(mgr.local_sid().is_none());
+    }
+
+    #[test]
+    fn track_muted_camera_clears_video() {
+        let mut mgr = ParticipantManager::new();
+        let mut p = make_participant("p1", "Alice");
+        p.has_video = true;
+        p.video_track_sid = Some("TR_CAM_1".to_string());
+        mgr.add_participant(p);
+
+        // Simulate TrackMuted for camera
+        if let Some(p) = mgr.participant_mut("p1") {
+            p.has_video = false;
+            p.video_track_sid = None;
+        }
+
+        let p = mgr.participant("p1").unwrap();
+        assert!(!p.has_video);
+        assert!(p.video_track_sid.is_none());
+    }
+
+    #[test]
+    fn track_unmuted_camera_restores_video() {
+        let mut mgr = ParticipantManager::new();
+        let p = make_participant("p1", "Alice");
+        mgr.add_participant(p);
+
+        // Simulate TrackUnmuted for camera
+        if let Some(p) = mgr.participant_mut("p1") {
+            p.has_video = true;
+            p.video_track_sid = Some("TR_CAM_1".to_string());
+        }
+
+        let p = mgr.participant("p1").unwrap();
+        assert!(p.has_video);
+        assert_eq!(p.video_track_sid.as_deref(), Some("TR_CAM_1"));
+    }
+
+    #[test]
+    fn mute_mic_preserves_video() {
+        let mut mgr = ParticipantManager::new();
+        let mut p = make_participant("p1", "Alice");
+        p.has_video = true;
+        p.video_track_sid = Some("TR_CAM_1".to_string());
+        mgr.add_participant(p);
+
+        // Simulate TrackMuted for microphone (only changes is_muted)
+        if let Some(p) = mgr.participant_mut("p1") {
+            p.is_muted = true;
+        }
+
+        let p = mgr.participant("p1").unwrap();
+        assert!(p.is_muted);
+        assert!(p.has_video, "muting mic should not clear video");
+        assert_eq!(p.video_track_sid.as_deref(), Some("TR_CAM_1"));
     }
 }

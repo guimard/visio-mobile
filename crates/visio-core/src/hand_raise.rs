@@ -1,7 +1,7 @@
+use livekit::prelude::Room;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use livekit::prelude::Room;
 
 use crate::errors::VisioError;
 use crate::events::{EventEmitter, VisioEvent};
@@ -136,7 +136,11 @@ impl HandRaiseManager {
             hands.retain(|_, sid| sid != &participant_sid);
         }
         let position = if is_raised {
-            hands.values().position(|s| s == &participant_sid).unwrap_or(0) as u32 + 1
+            hands
+                .values()
+                .position(|s| s == &participant_sid)
+                .unwrap_or(0) as u32
+                + 1
         } else {
             0
         };
@@ -207,9 +211,10 @@ impl HandRaiseManager {
                     // Auto-lower: set attribute and update local state
                     let _ = room2
                         .local_participant()
-                        .set_attributes(HashMap::from([
-                            ("handRaisedAt".to_string(), String::new()),
-                        ]))
+                        .set_attributes(HashMap::from([(
+                            "handRaisedAt".to_string(),
+                            String::new(),
+                        )]))
                         .await;
 
                     let mut hands = raised_hands2.lock().await;

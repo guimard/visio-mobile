@@ -1,17 +1,14 @@
+use futures_util::StreamExt;
+use livekit::data_stream::StreamReader;
+use livekit::participant::ConnectionQuality as LkConnectionQuality;
+use livekit::prelude::{RemoteParticipant, Room, RoomEvent, RoomOptions};
+#[cfg(target_os = "android")]
+use livekit::track::VideoQuality;
+use livekit::track::{RemoteVideoTrack, TrackKind as LkTrackKind, TrackSource as LkTrackSource};
+use livekit::webrtc::audio_stream::native::NativeAudioStream;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use livekit::prelude::{Room, RoomEvent, RoomOptions, RemoteParticipant};
-use livekit::track::{
-    RemoteVideoTrack,
-    TrackKind as LkTrackKind,
-    TrackSource as LkTrackSource,
-    VideoQuality,
-};
-use livekit::participant::ConnectionQuality as LkConnectionQuality;
-use livekit::data_stream::StreamReader;
-use livekit::webrtc::audio_stream::native::NativeAudioStream;
-use futures_util::StreamExt;
 
 use crate::audio_playout::AudioPlayoutBuffer;
 use crate::auth::AuthService;
@@ -38,6 +35,12 @@ pub struct RoomManager {
     /// authoritative camera state without depending on LiveKit publication
     /// mute-state timing.
     camera_enabled: Arc<Mutex<bool>>,
+}
+
+impl Default for RoomManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RoomManager {
@@ -79,7 +82,11 @@ impl RoomManager {
 
     /// Create a ChatService bound to this room.
     pub fn chat(&self) -> crate::chat::ChatService {
-        crate::chat::ChatService::new(self.room.clone(), self.emitter.clone(), self.messages.clone())
+        crate::chat::ChatService::new(
+            self.room.clone(),
+            self.emitter.clone(),
+            self.messages.clone(),
+        )
     }
 
     /// Get current connection state.
@@ -110,9 +117,10 @@ impl RoomManager {
         // publication mute state, which may lag behind the actual user intent
         // (pub_.mute() is async and needs server ACK before is_muted() updates).
         let has_video = *self.camera_enabled.lock().await;
-        let is_muted = local.track_publications().values().any(|pub_| {
-            pub_.kind() == LkTrackKind::Audio && pub_.is_muted()
-        });
+        let is_muted = local
+            .track_publications()
+            .values()
+            .any(|pub_| pub_.kind() == LkTrackKind::Audio && pub_.is_muted());
         // "local-camera" is a sentinel SID recognised by the JNI layer:
         // attachSurface stores the ANativeWindow in LOCAL_PREVIEW_SURFACE
         // and nativePushCameraFrame renders I420 frames directly to it,
@@ -123,7 +131,11 @@ impl RoomManager {
             name,
             is_muted,
             has_video,
-            video_track_sid: if has_video { Some("local-camera".to_string()) } else { None },
+            video_track_sid: if has_video {
+                Some("local-camera".to_string())
+            } else {
+                None
+            },
             connection_quality: ConnectionQuality::Excellent,
         })
     }
@@ -142,17 +154,18 @@ impl RoomManager {
 
     /// Get all currently subscribed video track SIDs.
     pub async fn video_track_sids(&self) -> Vec<String> {
-        self.subscribed_tracks.lock().await.keys().cloned().collect()
+        self.subscribed_tracks
+            .lock()
+            .await
+            .keys()
+            .cloned()
+            .collect()
     }
 
     /// Connect to a room using the Meet API.
     ///
     /// Calls the Meet API to get a token, then connects to the LiveKit room.
-    pub async fn connect(
-        &self,
-        meet_url: &str,
-        username: Option<&str>,
-    ) -> Result<(), VisioError> {
+    pub async fn connect(&self, meet_url: &str, username: Option<&str>) -> Result<(), VisioError> {
         self.set_connection_state(ConnectionState::Connecting).await;
 
         let token_info = AuthService::request_token(meet_url, username).await?;
@@ -218,7 +231,18 @@ impl RoomManager {
         let hand_raise = self.hand_raise.clone();
 
         tokio::spawn(async move {
-            Self::event_loop(events, emitter, participants, connection_state, room_ref, subscribed_tracks, messages, playout_buffer, hand_raise).await;
+            Self::event_loop(
+                events,
+                emitter,
+                participants,
+                connection_state,
+                room_ref,
+                subscribed_tracks,
+                messages,
+                playout_buffer,
+                hand_raise,
+            )
+            .await;
         });
 
         Ok(())
@@ -227,10 +251,10 @@ impl RoomManager {
     /// Disconnect from the current room.
     pub async fn disconnect(&self) {
         let room = self.room.lock().await.take();
-        if let Some(room) = room {
-            if let Err(e) = room.close().await {
-                tracing::warn!("error closing room: {e}");
-            }
+        if let Some(room) = room
+            && let Err(e) = room.close().await
+        {
+            tracing::warn!("error closing room: {e}");
         }
         self.participants.lock().await.clear();
         self.subscribed_tracks.lock().await.clear();
@@ -240,19 +264,26 @@ impl RoomManager {
         if let Some(hm) = self.hand_raise.lock().await.take() {
             hm.clear().await;
         }
-        self.set_connection_state(ConnectionState::Disconnected).await;
+        self.set_connection_state(ConnectionState::Disconnected)
+            .await;
     }
 
     /// Raise the local participant's hand.
     pub async fn raise_hand(&self) -> Result<(), VisioError> {
         let hm = self.hand_raise.lock().await;
-        hm.as_ref().ok_or(VisioError::Room("not connected".into()))?.raise_hand().await
+        hm.as_ref()
+            .ok_or(VisioError::Room("not connected".into()))?
+            .raise_hand()
+            .await
     }
 
     /// Lower the local participant's hand.
     pub async fn lower_hand(&self) -> Result<(), VisioError> {
         let hm = self.hand_raise.lock().await;
-        hm.as_ref().ok_or(VisioError::Room("not connected".into()))?.lower_hand().await
+        hm.as_ref()
+            .ok_or(VisioError::Room("not connected".into()))?
+            .lower_hand()
+            .await
     }
 
     /// Check if the local participant's hand is currently raised.
@@ -290,9 +321,10 @@ impl RoomManager {
         // VideoSurfaceView before the track is actually subscribed, leading
         // to a permanent black tile (attachSurface finds no track in the
         // subscribed_tracks registry).
-        let is_muted = p.track_publications().values().any(|pub_| {
-            pub_.kind() == LkTrackKind::Audio && pub_.is_muted()
-        });
+        let is_muted = p
+            .track_publications()
+            .values()
+            .any(|pub_| pub_.kind() == LkTrackKind::Audio && pub_.is_muted());
 
         ParticipantInfo {
             sid: p.sid().to_string(),
@@ -305,6 +337,7 @@ impl RoomManager {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn event_loop(
         mut events: tokio::sync::mpsc::UnboundedReceiver<RoomEvent>,
         emitter: EventEmitter,
@@ -325,12 +358,16 @@ impl RoomManager {
                 RoomEvent::Connected { .. } => {
                     reconnect_attempt = 0;
                     *connection_state.lock().await = ConnectionState::Connected;
-                    emitter.emit(VisioEvent::ConnectionStateChanged(ConnectionState::Connected));
+                    emitter.emit(VisioEvent::ConnectionStateChanged(
+                        ConnectionState::Connected,
+                    ));
                 }
 
                 RoomEvent::Reconnecting => {
                     reconnect_attempt += 1;
-                    let state = ConnectionState::Reconnecting { attempt: reconnect_attempt };
+                    let state = ConnectionState::Reconnecting {
+                        attempt: reconnect_attempt,
+                    };
                     *connection_state.lock().await = state.clone();
                     emitter.emit(VisioEvent::ConnectionStateChanged(state));
                 }
@@ -338,13 +375,17 @@ impl RoomManager {
                 RoomEvent::Reconnected => {
                     reconnect_attempt = 0;
                     *connection_state.lock().await = ConnectionState::Connected;
-                    emitter.emit(VisioEvent::ConnectionStateChanged(ConnectionState::Connected));
+                    emitter.emit(VisioEvent::ConnectionStateChanged(
+                        ConnectionState::Connected,
+                    ));
                 }
 
                 RoomEvent::Disconnected { reason } => {
                     tracing::info!("room disconnected: {reason:?}");
                     *connection_state.lock().await = ConnectionState::Disconnected;
-                    emitter.emit(VisioEvent::ConnectionStateChanged(ConnectionState::Disconnected));
+                    emitter.emit(VisioEvent::ConnectionStateChanged(
+                        ConnectionState::Disconnected,
+                    ));
                     participants.lock().await.clear();
                     subscribed_tracks.lock().await.clear();
                     messages.lock().await.clear();
@@ -374,7 +415,11 @@ impl RoomManager {
                     emitter.emit(VisioEvent::ParticipantLeft(sid));
                 }
 
-                RoomEvent::TrackSubscribed { track, publication, participant } => {
+                RoomEvent::TrackSubscribed {
+                    track,
+                    publication,
+                    participant,
+                } => {
                     let source = Self::lk_source_to_visio(publication.source());
                     let track_kind = match publication.kind() {
                         LkTrackKind::Audio => TrackKind::Audio,
@@ -386,20 +431,22 @@ impl RoomManager {
 
                     {
                         let mut pm = participants.lock().await;
-                        if let Some(p) = pm.participant_mut(&psid) {
-                            if track_kind == TrackKind::Video {
-                                p.has_video = true;
-                                p.video_track_sid = Some(track_sid.clone());
-                            }
+                        if let Some(p) = pm.participant_mut(&psid)
+                            && track_kind == TrackKind::Video
+                        {
+                            p.has_video = true;
+                            p.video_track_sid = Some(track_sid.clone());
                         }
                     }
 
                     // Store video tracks in the registry for later retrieval
-                    if track_kind == TrackKind::Video {
-                        if let livekit::track::RemoteTrack::Video(video_track) = &track {
-                            subscribed_tracks.lock().await
-                                .insert(track_sid.clone(), video_track.clone());
-                        }
+                    if track_kind == TrackKind::Video
+                        && let livekit::track::RemoteTrack::Video(video_track) = &track
+                    {
+                        subscribed_tracks
+                            .lock()
+                            .await
+                            .insert(track_sid.clone(), video_track.clone());
 
                         // Force LOW simulcast layer on Android to prevent decoder
                         // thrashing between 320x180 and 1280x720 (the hardware
@@ -410,25 +457,24 @@ impl RoomManager {
 
                     // Start audio playout: create NativeAudioStream and feed
                     // decoded PCM frames into the shared playout buffer.
-                    if track_kind == TrackKind::Audio {
-                        if let livekit::track::RemoteTrack::Audio(audio_track) = &track {
-                            let rtc_track = audio_track.rtc_track();
-                            let mut audio_stream = NativeAudioStream::new(
-                                rtc_track,
-                                48_000, // sample rate
-                                1,      // mono
-                            );
-                            let buf = playout_buffer.clone();
-                            let sid = track_sid.clone();
-                            let handle = tokio::spawn(async move {
-                                tracing::info!("audio playout stream started for track {sid}");
-                                while let Some(frame) = audio_stream.next().await {
-                                    buf.push_samples(&frame.data);
-                                }
-                                tracing::info!("audio playout stream ended for track {sid}");
-                            });
-                            audio_stream_tasks.insert(track_sid.clone(), handle);
-                        }
+                    if track_kind == TrackKind::Audio
+                        && let livekit::track::RemoteTrack::Audio(audio_track) = &track
+                    {
+                        let rtc_track = audio_track.rtc_track();
+                        let mut audio_stream = NativeAudioStream::new(
+                            rtc_track, 48_000, // sample rate
+                            1,      // mono
+                        );
+                        let buf = playout_buffer.clone();
+                        let sid = track_sid.clone();
+                        let handle = tokio::spawn(async move {
+                            tracing::info!("audio playout stream started for track {sid}");
+                            while let Some(frame) = audio_stream.next().await {
+                                buf.push_samples(&frame.data);
+                            }
+                            tracing::info!("audio playout stream ended for track {sid}");
+                        });
+                        audio_stream_tasks.insert(track_sid.clone(), handle);
                     }
 
                     let info = TrackInfo {
@@ -440,7 +486,11 @@ impl RoomManager {
                     emitter.emit(VisioEvent::TrackSubscribed(info));
                 }
 
-                RoomEvent::TrackUnsubscribed { track, publication, participant } => {
+                RoomEvent::TrackUnsubscribed {
+                    track,
+                    publication,
+                    participant,
+                } => {
                     let psid = participant.sid().to_string();
                     let track_sid = track.sid().to_string();
                     let is_video = publication.kind() == LkTrackKind::Video;
@@ -455,17 +505,18 @@ impl RoomManager {
                         subscribed_tracks.lock().await.remove(&track_sid);
                     }
 
-                    if is_audio {
-                        if let Some(handle) = audio_stream_tasks.remove(&track_sid) {
-                            handle.abort();
-                            tracing::info!("audio playout stream aborted for track {track_sid}");
-                        }
+                    if is_audio && let Some(handle) = audio_stream_tasks.remove(&track_sid) {
+                        handle.abort();
+                        tracing::info!("audio playout stream aborted for track {track_sid}");
                     }
 
                     emitter.emit(VisioEvent::TrackUnsubscribed(track_sid));
                 }
 
-                RoomEvent::TrackMuted { participant, publication } => {
+                RoomEvent::TrackMuted {
+                    participant,
+                    publication,
+                } => {
                     let psid = participant.sid().to_string();
                     let source = Self::lk_source_to_visio(publication.source());
 
@@ -482,10 +533,16 @@ impl RoomManager {
                     }
                     drop(pm);
 
-                    emitter.emit(VisioEvent::TrackMuted { participant_sid: psid, source });
+                    emitter.emit(VisioEvent::TrackMuted {
+                        participant_sid: psid,
+                        source,
+                    });
                 }
 
-                RoomEvent::TrackUnmuted { participant, publication } => {
+                RoomEvent::TrackUnmuted {
+                    participant,
+                    publication,
+                } => {
                     let psid = participant.sid().to_string();
                     let source = Self::lk_source_to_visio(publication.source());
                     let track_sid = publication.sid().to_string();
@@ -503,7 +560,10 @@ impl RoomManager {
                     }
                     drop(pm);
 
-                    emitter.emit(VisioEvent::TrackUnmuted { participant_sid: psid, source });
+                    emitter.emit(VisioEvent::TrackUnmuted {
+                        participant_sid: psid,
+                        source,
+                    });
                 }
 
                 RoomEvent::ActiveSpeakersChanged { speakers } => {
@@ -516,14 +576,21 @@ impl RoomManager {
                     emitter.emit(VisioEvent::ActiveSpeakersChanged(sids));
                 }
 
-                RoomEvent::ParticipantAttributesChanged { participant, changed_attributes } => {
+                RoomEvent::ParticipantAttributesChanged {
+                    participant,
+                    changed_attributes,
+                } => {
                     let psid = participant.sid().to_string();
                     if let Some(hm) = hand_raise.lock().await.as_ref() {
-                        hm.handle_participant_attributes(psid, &changed_attributes).await;
+                        hm.handle_participant_attributes(psid, &changed_attributes)
+                            .await;
                     }
                 }
 
-                RoomEvent::ConnectionQualityChanged { quality, participant } => {
+                RoomEvent::ConnectionQualityChanged {
+                    quality,
+                    participant,
+                } => {
                     let psid = participant.sid().to_string();
                     let q = match quality {
                         LkConnectionQuality::Excellent => ConnectionQuality::Excellent,
@@ -545,8 +612,16 @@ impl RoomManager {
                     });
                 }
 
-                RoomEvent::ChatMessage { message, participant, .. } => {
-                    tracing::info!("ChatMessage received: id={} text={}", message.id, message.message);
+                RoomEvent::ChatMessage {
+                    message,
+                    participant,
+                    ..
+                } => {
+                    tracing::info!(
+                        "ChatMessage received: id={} text={}",
+                        message.id,
+                        message.message
+                    );
                     let sender_sid = participant
                         .as_ref()
                         .map(|p| p.sid().to_string())
@@ -567,7 +642,11 @@ impl RoomManager {
                     emitter.emit(VisioEvent::ChatMessageReceived(msg));
                 }
 
-                RoomEvent::TextStreamOpened { reader, topic, participant_identity } => {
+                RoomEvent::TextStreamOpened {
+                    reader,
+                    topic,
+                    participant_identity,
+                } => {
                     if topic == "lk.chat" {
                         let messages = messages.clone();
                         let emitter = emitter.clone();
@@ -606,7 +685,11 @@ impl RoomManager {
                                         text,
                                         timestamp_ms,
                                     };
-                                    tracing::info!("Chat via TextStream: from={} text={}", msg.sender_name, msg.text);
+                                    tracing::info!(
+                                        "Chat via TextStream: from={} text={}",
+                                        msg.sender_name,
+                                        msg.text
+                                    );
                                     messages.lock().await.push(msg.clone());
                                     emitter.emit(VisioEvent::ChatMessageReceived(msg));
                                 }
@@ -620,7 +703,12 @@ impl RoomManager {
                     }
                 }
 
-                RoomEvent::DataReceived { payload, topic, kind, participant } => {
+                RoomEvent::DataReceived {
+                    payload,
+                    topic,
+                    kind,
+                    participant,
+                } => {
                     let psid = participant
                         .as_ref()
                         .map(|p| p.sid().to_string())
@@ -634,34 +722,33 @@ impl RoomManager {
                     // Legacy fallback: chat messages via DataReceived with topic "lk-chat-topic"
                     // New clients send both Stream + legacy; "ignoreLegacy" flag means
                     // the TextStreamOpened handler already processed it.
-                    if topic_str == "lk-chat-topic" {
-                        if let Ok(text) = std::str::from_utf8(&payload) {
-                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
-                                // Skip if sender uses Stream API (we handle it in TextStreamOpened)
-                                if json["ignoreLegacy"].as_bool() == Some(true) {
-                                    tracing::debug!("Skipping legacy DataReceived (ignoreLegacy=true)");
-                                    continue;
-                                }
+                    if topic_str == "lk-chat-topic"
+                        && let Ok(text) = std::str::from_utf8(&payload)
+                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(text)
+                    {
+                        // Skip if sender uses Stream API (we handle it in TextStreamOpened)
+                        if json["ignoreLegacy"].as_bool() == Some(true) {
+                            tracing::debug!("Skipping legacy DataReceived (ignoreLegacy=true)");
+                            continue;
+                        }
 
-                                let sender_name = participant
-                                    .as_ref()
-                                    .map(|p| p.name().to_string())
-                                    .unwrap_or_default();
+                        let sender_name = participant
+                            .as_ref()
+                            .map(|p| p.name().to_string())
+                            .unwrap_or_default();
 
-                                let msg = ChatMessage {
-                                    id: json["id"].as_str().unwrap_or("").to_string(),
-                                    sender_sid: psid.clone(),
-                                    sender_name,
-                                    text: json["message"].as_str().unwrap_or("").to_string(),
-                                    timestamp_ms: json["timestamp"].as_u64().unwrap_or(0),
-                                };
+                        let msg = ChatMessage {
+                            id: json["id"].as_str().unwrap_or("").to_string(),
+                            sender_sid: psid.clone(),
+                            sender_name,
+                            text: json["message"].as_str().unwrap_or("").to_string(),
+                            timestamp_ms: json["timestamp"].as_u64().unwrap_or(0),
+                        };
 
-                                if !msg.text.is_empty() {
-                                    tracing::info!("Chat via DataReceived: from={psid} text={}", msg.text);
-                                    messages.lock().await.push(msg.clone());
-                                    emitter.emit(VisioEvent::ChatMessageReceived(msg));
-                                }
-                            }
+                        if !msg.text.is_empty() {
+                            tracing::info!("Chat via DataReceived: from={psid} text={}", msg.text);
+                            messages.lock().await.push(msg.clone());
+                            emitter.emit(VisioEvent::ChatMessageReceived(msg));
                         }
                     }
                 }
@@ -673,5 +760,46 @@ impl RoomManager {
         }
 
         tracing::info!("room event loop ended");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn local_participant_info_returns_none_when_disconnected() {
+        let rm = RoomManager::new();
+        // No room connected, so local_participant_info returns None
+        assert!(rm.local_participant_info().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn camera_enabled_shared_with_controls() {
+        let rm = RoomManager::new();
+        let controls = rm.controls();
+
+        // Default: camera disabled
+        assert!(!controls.is_camera_enabled().await);
+
+        // Modify camera_enabled via the shared Arc inside RoomManager
+        *rm.camera_enabled.lock().await = true;
+
+        // Controls should see the updated value
+        assert!(controls.is_camera_enabled().await);
+    }
+
+    #[tokio::test]
+    async fn initial_connection_state_is_disconnected() {
+        let rm = RoomManager::new();
+        assert_eq!(rm.connection_state().await, ConnectionState::Disconnected);
+    }
+
+    #[tokio::test]
+    async fn participants_empty_when_disconnected() {
+        let rm = RoomManager::new();
+        // No room means no local participant, no remote participants
+        let participants = rm.participants().await;
+        assert!(participants.is_empty());
     }
 }

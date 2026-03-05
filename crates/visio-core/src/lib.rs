@@ -14,6 +14,7 @@ pub mod participants;
 pub mod room;
 pub mod settings;
 
+pub use audio_playout::AudioPlayoutBuffer;
 pub use auth::{AuthService, TokenInfo};
 pub use chat::ChatService;
 pub use controls::MeetingControls;
@@ -25,5 +26,4 @@ pub use events::{
 pub use hand_raise::HandRaiseManager;
 pub use participants::ParticipantManager;
 pub use room::RoomManager;
-pub use audio_playout::AudioPlayoutBuffer;
 pub use settings::{Settings, SettingsStore};

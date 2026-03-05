@@ -15,6 +15,12 @@ pub struct AudioPlayoutBuffer {
     max_samples: usize,
 }
 
+impl Default for AudioPlayoutBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioPlayoutBuffer {
     pub fn new() -> Self {
         // 2 seconds of 48kHz mono audio

@@ -8,10 +8,19 @@ pub enum VisioEvent {
     ParticipantLeft(String), // participant SID
     TrackSubscribed(TrackInfo),
     TrackUnsubscribed(String), // track SID
-    TrackMuted { participant_sid: String, source: TrackSource },
-    TrackUnmuted { participant_sid: String, source: TrackSource },
+    TrackMuted {
+        participant_sid: String,
+        source: TrackSource,
+    },
+    TrackUnmuted {
+        participant_sid: String,
+        source: TrackSource,
+    },
     ActiveSpeakersChanged(Vec<String>), // participant SIDs
-    ConnectionQualityChanged { participant_sid: String, quality: ConnectionQuality },
+    ConnectionQualityChanged {
+        participant_sid: String,
+        quality: ConnectionQuality,
+    },
     ChatMessageReceived(ChatMessage),
     HandRaisedChanged {
         participant_sid: String,
@@ -91,6 +100,12 @@ pub struct EventEmitter {
     listeners: Arc<std::sync::RwLock<Vec<Arc<dyn VisioEventListener>>>>,
 }
 
+impl Default for EventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventEmitter {
     pub fn new() -> Self {
         Self {
@@ -129,10 +144,14 @@ mod tests {
     fn emitter_dispatches_to_listener() {
         let emitter = EventEmitter::new();
         let count = Arc::new(AtomicUsize::new(0));
-        let listener = Arc::new(CountingListener { count: count.clone() });
+        let listener = Arc::new(CountingListener {
+            count: count.clone(),
+        });
 
         emitter.add_listener(listener);
-        emitter.emit(VisioEvent::ConnectionStateChanged(ConnectionState::Connected));
+        emitter.emit(VisioEvent::ConnectionStateChanged(
+            ConnectionState::Connected,
+        ));
 
         assert_eq!(count.load(Ordering::SeqCst), 1);
     }
@@ -143,10 +162,16 @@ mod tests {
         let count1 = Arc::new(AtomicUsize::new(0));
         let count2 = Arc::new(AtomicUsize::new(0));
 
-        emitter.add_listener(Arc::new(CountingListener { count: count1.clone() }));
-        emitter.add_listener(Arc::new(CountingListener { count: count2.clone() }));
+        emitter.add_listener(Arc::new(CountingListener {
+            count: count1.clone(),
+        }));
+        emitter.add_listener(Arc::new(CountingListener {
+            count: count2.clone(),
+        }));
 
-        emitter.emit(VisioEvent::ConnectionStateChanged(ConnectionState::Connected));
+        emitter.emit(VisioEvent::ConnectionStateChanged(
+            ConnectionState::Connected,
+        ));
 
         assert_eq!(count1.load(Ordering::SeqCst), 1);
         assert_eq!(count2.load(Ordering::SeqCst), 1);
@@ -166,7 +191,9 @@ mod tests {
     fn emitter_delivers_correct_events() {
         let emitter = EventEmitter::new();
         let events = Arc::new(std::sync::Mutex::new(Vec::new()));
-        let listener = Arc::new(EventCapture { events: events.clone() });
+        let listener = Arc::new(EventCapture {
+            events: events.clone(),
+        });
 
         emitter.add_listener(listener);
         emitter.emit(VisioEvent::ParticipantLeft("p1".to_string()));

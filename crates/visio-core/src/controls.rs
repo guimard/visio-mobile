@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use livekit::options::TrackPublishOptions;
 use livekit::prelude::*;
 use livekit::track::TrackSource as LkTrackSource;
-use livekit::webrtc::prelude::*;
 use livekit::webrtc::audio_source::native::NativeAudioSource;
+use livekit::webrtc::prelude::*;
 use livekit::webrtc::video_source::native::NativeVideoSource;
-use livekit::options::TrackPublishOptions;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::errors::VisioError;
 use crate::events::{EventEmitter, VisioEvent};
@@ -90,11 +90,10 @@ impl MeetingControls {
         *self.audio_source.lock().await = Some(source.clone());
 
         tracing::info!("microphone track published");
-        self.emitter
-            .emit(VisioEvent::TrackMuted {
-                participant_sid: String::new(),
-                source: crate::events::TrackSource::Microphone,
-            });
+        self.emitter.emit(VisioEvent::TrackMuted {
+            participant_sid: String::new(),
+            source: crate::events::TrackSource::Microphone,
+        });
 
         Ok(source)
     }
@@ -117,10 +116,8 @@ impl MeetingControls {
             false, // not a screencast
         );
 
-        let track = LocalVideoTrack::create_video_track(
-            "camera",
-            RtcVideoSource::Native(source.clone()),
-        );
+        let track =
+            LocalVideoTrack::create_video_track("camera", RtcVideoSource::Native(source.clone()));
 
         room.local_participant()
             .publish_track(
@@ -160,7 +157,11 @@ impl MeetingControls {
             if has_mic_track {
                 for (_, pub_) in local.track_publications() {
                     if pub_.source() == LkTrackSource::Microphone {
-                        if enabled { pub_.unmute(); } else { pub_.mute(); }
+                        if enabled {
+                            pub_.unmute();
+                        } else {
+                            pub_.mute();
+                        }
                         break;
                     }
                 }
@@ -198,7 +199,11 @@ impl MeetingControls {
             if has_camera_track {
                 for (_, pub_) in local.track_publications() {
                     if pub_.source() == LkTrackSource::Camera {
-                        if enabled { pub_.unmute(); } else { pub_.mute(); }
+                        if enabled {
+                            pub_.unmute();
+                        } else {
+                            pub_.mute();
+                        }
                         break;
                     }
                 }
@@ -234,5 +239,61 @@ impl MeetingControls {
     /// Get the video source for feeding video frames from native capture.
     pub async fn video_source(&self) -> Option<NativeVideoSource> {
         self.video_source.lock().await.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::events::EventEmitter;
+
+    fn make_controls() -> (MeetingControls, Arc<Mutex<bool>>) {
+        let room = Arc::new(Mutex::new(None));
+        let emitter = EventEmitter::new();
+        let camera_enabled = Arc::new(Mutex::new(false));
+        let controls = MeetingControls::new(room, emitter, camera_enabled.clone());
+        (controls, camera_enabled)
+    }
+
+    #[tokio::test]
+    async fn camera_enabled_initial_state() {
+        let (controls, _) = make_controls();
+        assert!(!controls.is_camera_enabled().await);
+    }
+
+    #[tokio::test]
+    async fn shared_camera_enabled_flag() {
+        let (controls, camera_enabled) = make_controls();
+
+        // Modify from outside
+        *camera_enabled.lock().await = true;
+        assert!(controls.is_camera_enabled().await);
+
+        // Modify back
+        *camera_enabled.lock().await = false;
+        assert!(!controls.is_camera_enabled().await);
+    }
+
+    #[tokio::test]
+    async fn set_camera_disabled_without_room() {
+        let (controls, camera_enabled) = make_controls();
+
+        // Start with camera enabled
+        *camera_enabled.lock().await = true;
+        assert!(controls.is_camera_enabled().await);
+
+        // set_camera_enabled(false) without a room returns an error
+        // (because it tries to lock the room and finds None),
+        // but the `else` branch sets camera_enabled = false
+        // when there is no camera track to mute.
+        let result = controls.set_camera_enabled(false).await;
+        // Without a connected room, this returns Err
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn mic_enabled_initial_state() {
+        let (controls, _) = make_controls();
+        assert!(!controls.is_microphone_enabled().await);
     }
 }

@@ -270,10 +270,13 @@ mod tests {
             ]);
         }
         let store = SettingsStore::new(path);
-        assert_eq!(store.get().meet_instances, vec![
-            "meet.numerique.gouv.fr".to_string(),
-            "meet.example.com".to_string(),
-        ]);
+        assert_eq!(
+            store.get().meet_instances,
+            vec![
+                "meet.numerique.gouv.fr".to_string(),
+                "meet.example.com".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -308,8 +311,12 @@ mod tests {
         std::fs::write(
             dir.path().join("settings.json"),
             r#"{"display_name":"Eve"}"#,
-        ).unwrap();
+        )
+        .unwrap();
         let store = SettingsStore::new(path);
-        assert_eq!(store.get().meet_instances, vec!["meet.numerique.gouv.fr".to_string()]);
+        assert_eq!(
+            store.get().meet_instances,
+            vec!["meet.numerique.gouv.fr".to_string()]
+        );
     }
 }

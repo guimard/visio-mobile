@@ -21,3 +21,5 @@ regex = "1"
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { workspace = true }
+livekit-api = { workspace = true }
