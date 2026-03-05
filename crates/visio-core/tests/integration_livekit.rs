@@ -125,22 +125,33 @@ async fn test_two_participants_see_each_other() {
         .await
         .expect("connect rm2");
 
-    // Wait for participants to appear
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    // Wait for participants to appear (with timeout instead of fixed sleep)
+    let timeout = Duration::from_secs(10);
+    let start = std::time::Instant::now();
+    let mut saw_bob = false;
+    let mut saw_alice = false;
+
+    while start.elapsed() < timeout && (!saw_bob || !saw_alice) {
+        if !saw_bob {
+            let p1 = rm1.participants().await;
+            saw_bob = p1.iter().any(|p| p.identity == "bob");
+        }
+        if !saw_alice {
+            let p2 = rm2.participants().await;
+            saw_alice = p2.iter().any(|p| p.identity == "alice");
+        }
+        if !saw_bob || !saw_alice {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
 
     let p1 = rm1.participants().await;
     let p2 = rm2.participants().await;
 
     // rm1 should see bob as a remote participant (+ alice as local)
-    assert!(
-        p1.iter().any(|p| p.identity == "bob"),
-        "rm1 should see bob, got: {p1:?}"
-    );
+    assert!(saw_bob, "rm1 should see bob, got: {p1:?}");
     // rm2 should see alice as a remote participant (+ bob as local)
-    assert!(
-        p2.iter().any(|p| p.identity == "alice"),
-        "rm2 should see alice, got: {p2:?}"
-    );
+    assert!(saw_alice, "rm2 should see alice, got: {p2:?}");
 
     rm1.disconnect().await;
     rm2.disconnect().await;
