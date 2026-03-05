@@ -1,6 +1,14 @@
 name: Build & Distribute iOS
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/build-ios.yml'
   workflow_dispatch:
     inputs:
       release_notes:
