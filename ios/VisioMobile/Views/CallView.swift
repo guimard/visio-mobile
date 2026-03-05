@@ -95,9 +95,11 @@ struct CallView: View {
             manager.connect(url: roomURL, username: name)
             manager.startAudioPlayout()
             CallKitManager.shared.reportCallStarted(roomName: roomURL)
+            UIApplication.shared.isIdleTimerDisabled = true
         }
         .onDisappear {
             manager.stopAudioPlayout()
+            UIApplication.shared.isIdleTimerDisabled = false
         }
         .onChange(of: scenePhase) { phase in
             if phase == .background {

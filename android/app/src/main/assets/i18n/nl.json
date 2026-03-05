@@ -100,5 +100,17 @@
   "settings.meetInstances": "Meet-instanties",
   "settings.addInstance": "Instantie toevoegen",
   "settings.instancePlaceholder": "meet.example.com",
-  "deepLink.unknownInstance": "Onbekende instantie: {host}"
+  "deepLink.unknownInstance": "Onbekende instantie: {host}",
+  "settings.incall": "Gespreksinstellingen",
+  "settings.incall.micro": "Microfoon",
+  "settings.incall.camera": "Camera",
+  "settings.incall.notifications": "Meldingen",
+  "settings.incall.audioInput": "Audio-invoer",
+  "settings.incall.audioOutput": "Audio-uitvoer",
+  "settings.incall.cameraSelect": "Cameraselectie",
+  "settings.incall.cameraFront": "Frontcamera",
+  "settings.incall.cameraBack": "Achtercamera",
+  "settings.incall.notifParticipant": "Deelnemer aangesloten",
+  "settings.incall.notifHandRaised": "Hand opgestoken",
+  "settings.incall.notifMessage": "Bericht ontvangen"
 }
