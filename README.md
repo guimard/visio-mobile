@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/screenshots/app_icon.png" alt="Visio Mobile" width="128" />
+</p>
+
 # Visio Mobile
 
 Native video conferencing client for [La Suite Meet](https://meet.numerique.gouv.fr), built on the [LiveKit Rust SDK](https://github.com/livekit/rust-sdks).
@@ -273,7 +277,6 @@ docs/plans/         Design docs and implementation plans
 
 - Push notifications
 - ProConnect authentication
-- Screen sharing
 - App store packaging (APK/IPA/DMG)
 
 ## Configuration
