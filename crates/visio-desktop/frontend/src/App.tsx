@@ -156,9 +156,11 @@ function VisioLogo({ size = 64 }: { size?: number }) {
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
+  // Remove parenthetical suffixes like "(You)" before computing initials
+  const cleanName = name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const parts = cleanName.split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
+  return cleanName.substring(0, 2).toUpperCase();
 }
 
 function getHue(name: string | null | undefined): number {
@@ -1114,23 +1116,40 @@ function SettingsModal({
                 }}><RiCloseLine size={16} /></button>
               </div>
             ))}
-            <div className="instance-add-row">
+            <div className="instance-add-row" style={{ display: "flex", gap: "8px" }}>
               <input
                 id="newInstance"
                 type="text"
+                style={{ flex: 1 }}
                 placeholder={t("settings.instancePlaceholder")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    const val = (e.target as HTMLInputElement).value.trim().toLowerCase();
-                    if (val && !meetInstances.includes(val)) {
-                      const next = [...meetInstances, val];
-                      setMeetInstances(next);
-                      invoke("set_meet_instances", { instances: next });
-                      (e.target as HTMLInputElement).value = "";
-                    }
+                    (document.getElementById("addInstanceBtn") as HTMLButtonElement)?.click();
                   }
                 }}
               />
+              <button
+                id="addInstanceBtn"
+                className="btn-icon"
+                style={{ padding: "8px", cursor: "pointer" }}
+                onClick={() => {
+                  const input = document.getElementById("newInstance") as HTMLInputElement;
+                  let val = input.value.trim().toLowerCase();
+                  // Extract hostname from URL if user entered full URL
+                  try {
+                    const url = new URL(val.startsWith("http") ? val : `https://${val}`);
+                    val = url.hostname;
+                  } catch {
+                    // Not a valid URL, use as-is
+                  }
+                  if (val && !meetInstances.includes(val)) {
+                    const next = [...meetInstances, val];
+                    setMeetInstances(next);
+                    invoke("set_meet_instances", { instances: next });
+                    input.value = "";
+                  }
+                }}
+              ><RiAddLine size={16} /></button>
             </div>
           </div>
         </div>
@@ -1422,8 +1441,8 @@ export default function App() {
   const handleLogin = async (instance: string) => {
     try {
       const loginUrl = await invoke<string>("get_login_url", { instance });
-      // Open in system browser
-      window.open(loginUrl, "_blank");
+      // Open in system browser via Tauri command
+      await invoke("open_url", { url: loginUrl });
     } catch (e) {
       console.error("login error:", e);
     }
