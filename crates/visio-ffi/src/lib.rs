@@ -51,9 +51,8 @@ fn visio_log(msg: &str) {
         unsafe extern "C" {
             fn __android_log_write(prio: i32, tag: *const std::ffi::c_char, text: *const std::ffi::c_char) -> i32;
         }
-        let tag = CString::new("VISIO_FFI").unwrap();
-        let text = CString::new(msg).unwrap_or_else(|_| CString::new("(invalid utf8)").unwrap());
-        unsafe { __android_log_write(4 /* INFO */, tag.as_ptr(), text.as_ptr()); }
+        let text = CString::new(msg).unwrap_or_else(|_| c"(invalid utf8)".into());
+        unsafe { __android_log_write(4 /* INFO */, c"VISIO_FFI".as_ptr(), text.as_ptr()); }
     }
     #[cfg(target_os = "ios")]
     {
@@ -62,7 +61,7 @@ fn visio_log(msg: &str) {
         unsafe extern "C" {
             fn syslog(priority: i32, message: *const std::ffi::c_char, ...);
         }
-        let text = CString::new(msg).unwrap_or_else(|_| CString::new("(invalid utf8)").unwrap());
+        let text = CString::new(msg).unwrap_or_else(|_| c"(invalid utf8)".into());
         unsafe { syslog(6 /* LOG_INFO */, text.as_ptr()); }
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -817,7 +816,7 @@ pub unsafe extern "C" fn Java_io_visio_mobile_NativeVideo_nativePushCameraFrame(
     };
 
     // Get direct buffer addresses from ByteBuffer objects
-    let jni_env = unsafe { jni::JNIEnv::from_raw(env) }.expect("invalid JNIEnv");
+    let Ok(jni_env) = (unsafe { jni::JNIEnv::from_raw(env) }) else { return };
 
     let y_ptr = unsafe {
         jni_env.get_direct_buffer_address(&jni::objects::JByteBuffer::from_raw(y_buf))
@@ -960,7 +959,7 @@ pub unsafe extern "C" fn Java_io_visio_mobile_NativeVideo_nativePushAudioFrame(
     let source = source.clone();
     drop(guard);
 
-    let jni_env = unsafe { jni::JNIEnv::from_raw(env) }.expect("invalid JNIEnv");
+    let Ok(jni_env) = (unsafe { jni::JNIEnv::from_raw(env) }) else { return };
     let ptr = unsafe {
         jni_env.get_direct_buffer_address(&jni::objects::JByteBuffer::from_raw(data_buf))
     };
@@ -1019,7 +1018,7 @@ pub unsafe extern "C" fn Java_io_visio_mobile_NativeVideo_nativePullAudioPlaybac
     let playout = playout.clone();
     drop(guard);
 
-    let mut jni_env = unsafe { jni::JNIEnv::from_raw(env) }.expect("invalid JNIEnv");
+    let Ok(mut jni_env) = (unsafe { jni::JNIEnv::from_raw(env) }) else { return };
 
     let len = jni_env.get_array_length(&unsafe { jni::objects::JShortArray::from_raw(buffer) })
         .unwrap_or(0) as usize;

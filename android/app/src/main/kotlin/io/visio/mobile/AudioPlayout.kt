@@ -92,7 +92,13 @@ class AudioPlayout {
     fun stop() {
         if (!running) return
         running = false
-        playThread?.join(1000)
+        playThread?.let { thread ->
+            thread.join(1000)
+            if (thread.isAlive) {
+                Log.w(TAG, "Playout thread did not stop within 1s, interrupting")
+                thread.interrupt()
+            }
+        }
         playThread = null
         audioTrack = null
     }

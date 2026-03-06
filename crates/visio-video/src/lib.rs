@@ -24,11 +24,10 @@ pub use android::render_i420_to_surface;
 #[cfg(target_os = "android")]
 fn android_log(msg: &str) {
     use std::ffi::CString;
-    let tag = CString::new("VISIO_VIDEO").unwrap();
-    let text = CString::new(msg).unwrap_or_else(|_| CString::new("(invalid)").unwrap());
+    let text = CString::new(msg).unwrap_or_else(|_| c"(invalid)".into());
     unsafe {
         unsafe extern "C" { fn __android_log_write(prio: i32, tag: *const std::ffi::c_char, text: *const std::ffi::c_char) -> i32; }
-        __android_log_write(4, tag.as_ptr(), text.as_ptr());
+        __android_log_write(4, c"VISIO_VIDEO".as_ptr(), text.as_ptr());
     }
 }
 
@@ -130,7 +129,7 @@ pub fn start_track_renderer(
 
     renderers()
         .lock()
-        .expect("renderer lock poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .insert(track_sid, renderer);
 }
 
@@ -138,7 +137,7 @@ pub fn start_track_renderer(
 pub fn stop_track_renderer(track_sid: &str) {
     if let Some(renderer) = renderers()
         .lock()
-        .expect("renderer lock poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .remove(track_sid)
     {
         // Signal cancellation; the frame_loop will exit on next iteration.

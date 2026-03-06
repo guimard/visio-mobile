@@ -406,9 +406,8 @@ extension VisioManager: VisioEventListener {
                 } else {
                     self.handRaisedMap.removeValue(forKey: participantSid)
                 }
-                // Update local hand raise state
-                let localSid = self.participants.first?.sid  // first is usually local
-                if participantSid == localSid || self.client.isHandRaised() != self.isHandRaised {
+                // Update local hand raise state — always sync from client truth
+                if self.client.isHandRaised() != self.isHandRaised {
                     self.isHandRaised = self.client.isHandRaised()
                 }
 

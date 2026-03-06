@@ -99,7 +99,7 @@ struct ChatView: View {
     }
 
     /// Determine if this message is from the local user.
-    /// The first participant is typically the local participant.
+    /// Note: relies on first participant being local (LiveKit convention).
     private func isOwnMessage(_ message: ChatMessage) -> Bool {
         guard let localParticipant = manager.participants.first else { return false }
         return message.senderSid == localParticipant.sid

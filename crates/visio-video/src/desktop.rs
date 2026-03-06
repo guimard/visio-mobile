@@ -93,8 +93,10 @@ fn encode_and_deliver(
     }
 
     // Encode as JPEG (quality 60 — good balance of size vs. quality).
-    let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
-        ImageBuffer::from_raw(width, height, rgb).expect("buffer size mismatch");
+    let Some(img) = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(width, height, rgb) else {
+        tracing::warn!("buffer size mismatch for track {track_sid}");
+        return;
+    };
 
     let mut jpeg_buf = Vec::with_capacity(w * h / 4);
     let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buf, 60);
@@ -108,7 +110,10 @@ fn encode_and_deliver(
     let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_buf);
 
     // Deliver via callback
-    let sid_cstr = std::ffi::CString::new(track_sid).unwrap();
+    let Ok(sid_cstr) = std::ffi::CString::new(track_sid) else {
+        tracing::warn!("track_sid contains NUL byte, skipping callback");
+        return;
+    };
     unsafe {
         (cb.callback)(
             sid_cstr.as_ptr(),

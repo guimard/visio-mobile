@@ -114,7 +114,13 @@ class AudioCapture {
             recordThread = null
             recorder = null
         }
-        thread?.join(1000)
+        thread?.let {
+            it.join(1000)
+            if (it.isAlive) {
+                Log.w(TAG, "Capture thread did not stop within 1s, interrupting")
+                it.interrupt()
+            }
+        }
         NativeVideo.nativeStopAudioCapture()
     }
 }

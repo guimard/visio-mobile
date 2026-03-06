@@ -163,7 +163,7 @@ object VisioManager : VisioEventListener {
         val pm = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock =
             pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VisioMobile::AudioPlayout").apply {
-                acquire()
+                acquire(4 * 60 * 60 * 1000L) // 4-hour timeout as safety net
             }
         audioPlayout = AudioPlayout().also { it.start() }
     }

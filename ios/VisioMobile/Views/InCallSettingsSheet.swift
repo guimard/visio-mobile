@@ -141,7 +141,8 @@ private struct MicroTabContent: View {
             // Output section
             Section(Strings.t("settings.incall.audioOutput", lang: lang)) {
                 Button {
-                    try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+                    do { try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker) }
+                    catch { NSLog("Failed to override audio to speaker: %@", error.localizedDescription) }
                     loadDevices()
                 } label: {
                     HStack {
@@ -158,7 +159,8 @@ private struct MicroTabContent: View {
                 }
 
                 Button {
-                    try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.none)
+                    do { try AVAudioSession.sharedInstance().overrideOutputAudioPort(.none) }
+                    catch { NSLog("Failed to override audio to earpiece: %@", error.localizedDescription) }
                     loadDevices()
                 } label: {
                     HStack {
@@ -222,7 +224,8 @@ private struct MicroTabContent: View {
     }
 
     private func selectInput(_ port: AVAudioSessionPortDescription) {
-        try? AVAudioSession.sharedInstance().setPreferredInput(port)
+        do { try AVAudioSession.sharedInstance().setPreferredInput(port) }
+        catch { NSLog("Failed to set preferred input: %@", error.localizedDescription) }
         currentInput = port
     }
 

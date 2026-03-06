@@ -359,17 +359,17 @@ async fn toggle_mic(
 
     if enabled {
         // Start capture if not already running
-        let already_running = state.audio_capture.lock().unwrap().is_some();
+        let already_running = state.audio_capture.lock().unwrap_or_else(|e| e.into_inner()).is_some();
         if !already_running {
             if let Some(source) = controls.audio_source().await {
                 let capture = audio_cpal::CpalAudioCapture::start(source)
                     .map_err(|e| format!("audio capture: {e}"))?;
-                *state.audio_capture.lock().unwrap() = Some(capture);
+                *state.audio_capture.lock().unwrap_or_else(|e| e.into_inner()) = Some(capture);
             }
         }
     } else {
         // Stop capture
-        let mut cap = state.audio_capture.lock().unwrap();
+        let mut cap = state.audio_capture.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(capture) = cap.take() {
             capture.stop();
         }
@@ -398,7 +398,7 @@ async fn toggle_camera(
             {
                 let capture = camera_macos::MacCameraCapture::start(source)
                     .map_err(|e| format!("camera capture: {e}"))?;
-                let mut cam = state.camera_capture.lock().unwrap();
+                let mut cam = state.camera_capture.lock().unwrap_or_else(|e| e.into_inner());
                 *cam = Some(capture);
             }
         }
@@ -406,7 +406,7 @@ async fn toggle_camera(
         // Stop camera capture when disabling
         #[cfg(target_os = "macos")]
         {
-            let mut cam = state.camera_capture.lock().unwrap();
+            let mut cam = state.camera_capture.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(mut capture) = cam.take() {
                 capture.stop();
             }

@@ -69,60 +69,60 @@ impl SettingsStore {
     }
 
     pub fn get(&self) -> Settings {
-        self.settings.lock().unwrap().clone()
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     pub fn set_display_name(&self, name: Option<String>) {
-        self.settings.lock().unwrap().display_name = name;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).display_name = name;
         self.save();
     }
 
     pub fn set_language(&self, lang: Option<String>) {
-        self.settings.lock().unwrap().language = lang;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).language = lang;
         self.save();
     }
 
     pub fn set_mic_enabled_on_join(&self, enabled: bool) {
-        self.settings.lock().unwrap().mic_enabled_on_join = enabled;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).mic_enabled_on_join = enabled;
         self.save();
     }
 
     pub fn set_camera_enabled_on_join(&self, enabled: bool) {
-        self.settings.lock().unwrap().camera_enabled_on_join = enabled;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).camera_enabled_on_join = enabled;
         self.save();
     }
 
     pub fn set_theme(&self, theme: String) {
-        self.settings.lock().unwrap().theme = theme;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).theme = theme;
         self.save();
     }
 
     pub fn get_meet_instances(&self) -> Vec<String> {
-        self.settings.lock().unwrap().meet_instances.clone()
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).meet_instances.clone()
     }
 
     pub fn set_meet_instances(&self, instances: Vec<String>) {
-        self.settings.lock().unwrap().meet_instances = instances;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).meet_instances = instances;
         self.save();
     }
 
     pub fn set_notification_participant_join(&self, enabled: bool) {
-        self.settings.lock().unwrap().notification_participant_join = enabled;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).notification_participant_join = enabled;
         self.save();
     }
 
     pub fn set_notification_hand_raised(&self, enabled: bool) {
-        self.settings.lock().unwrap().notification_hand_raised = enabled;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).notification_hand_raised = enabled;
         self.save();
     }
 
     pub fn set_notification_message_received(&self, enabled: bool) {
-        self.settings.lock().unwrap().notification_message_received = enabled;
+        self.settings.lock().unwrap_or_else(|e| e.into_inner()).notification_message_received = enabled;
         self.save();
     }
 
     fn save(&self) {
-        let settings = self.settings.lock().unwrap().clone();
+        let settings = self.settings.lock().unwrap_or_else(|e| e.into_inner()).clone();
         if let Some(parent) = self.file_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
