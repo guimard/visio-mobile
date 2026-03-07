@@ -263,6 +263,12 @@ pub enum RoomValidationResult {
 }
 
 #[derive(Debug, Clone)]
+pub enum SessionState {
+    Anonymous,
+    Authenticated { display_name: String, email: String },
+}
+
+#[derive(Debug, Clone)]
 pub enum VisioEvent {
     ConnectionStateChanged { state: ConnectionState },
     ParticipantJoined { info: ParticipantInfo },
@@ -380,6 +386,7 @@ pub struct VisioClient {
     controls: visio_core::MeetingControls,
     chat: visio_core::ChatService,
     settings: visio_core::SettingsStore,
+    session_manager: Arc<StdMutex<visio_core::SessionManager>>,
     rt: tokio::runtime::Runtime,
 }
 
@@ -410,12 +417,15 @@ impl VisioClient {
         let controls = room_manager.controls();
         let chat = room_manager.chat();
 
+        let session_manager = Arc::new(StdMutex::new(visio_core::SessionManager::new()));
+
         visio_log("VISIO FFI: VisioClient::new() completed");
         Self {
             room_manager,
             controls,
             chat,
             settings,
+            session_manager,
             rt,
         }
     }
@@ -664,10 +674,14 @@ impl VisioClient {
     }
 
     pub fn validate_room(&self, url: String, username: Option<String>) -> RoomValidationResult {
+        let cookie = {
+            let session = self.session_manager.lock().unwrap();
+            session.cookie()
+        };
         if let Err(e) = visio_core::AuthService::extract_slug(&url) {
             return RoomValidationResult::InvalidFormat { message: e.to_string() };
         }
-        match self.rt.block_on(visio_core::AuthService::validate_room(&url, username.as_deref(), None)) {
+        match self.rt.block_on(visio_core::AuthService::validate_room(&url, username.as_deref(), cookie.as_deref())) {
             Ok(token_info) => RoomValidationResult::Valid {
                 livekit_url: token_info.livekit_url,
                 token: token_info.token,
@@ -677,6 +691,42 @@ impl VisioClient {
             }
             Err(e) => RoomValidationResult::NetworkError { message: e.to_string() },
         }
+    }
+
+    /// Set session cookie after OIDC flow, validate with backend
+    pub fn authenticate(&self, meet_url: String, cookie: String) -> Result<(), VisioError> {
+        let user = self.rt.block_on(
+            visio_core::SessionManager::fetch_user(&meet_url, &cookie)
+        ).map_err(VisioError::from)?;
+
+        let mut session = self.session_manager.lock().unwrap();
+        session.set_authenticated(user, cookie);
+        Ok(())
+    }
+
+    /// Get current session state
+    pub fn get_session_state(&self) -> SessionState {
+        let session = self.session_manager.lock().unwrap();
+        match session.state() {
+            visio_core::SessionState::Anonymous => SessionState::Anonymous,
+            visio_core::SessionState::Authenticated { user, .. } => SessionState::Authenticated {
+                display_name: user.display_name.clone(),
+                email: user.email.clone(),
+            },
+        }
+    }
+
+    /// Logout and clear session
+    pub fn logout(&self, meet_url: String) -> Result<(), VisioError> {
+        let mut session = self.session_manager.lock().unwrap();
+        self.rt.block_on(session.logout(&meet_url)).map_err(VisioError::from)?;
+        Ok(())
+    }
+
+    /// Validate existing session cookie (returns true if still valid)
+    pub fn validate_session(&self, meet_url: String) -> Result<bool, VisioError> {
+        let mut session = self.session_manager.lock().unwrap();
+        self.rt.block_on(session.validate_session(&meet_url)).map_err(VisioError::from)
     }
 
     pub fn start_video_renderer(&self, track_sid: String) {

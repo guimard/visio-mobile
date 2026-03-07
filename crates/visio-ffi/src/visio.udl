@@ -105,6 +105,12 @@ interface RoomValidationResult {
     NetworkError(string message);
 };
 
+[Enum]
+interface SessionState {
+    Anonymous();
+    Authenticated(string display_name, string email);
+};
+
 interface VisioClient {
     constructor(string data_dir);
 
@@ -174,6 +180,17 @@ interface VisioClient {
     u32 unread_count();
 
     RoomValidationResult validate_room(string url, string? username);
+
+    [Throws=VisioError]
+    void authenticate(string meet_url, string cookie);
+
+    SessionState get_session_state();
+
+    [Throws=VisioError]
+    void logout(string meet_url);
+
+    [Throws=VisioError]
+    boolean validate_session(string meet_url);
 
     void start_video_renderer(string track_sid);
 
