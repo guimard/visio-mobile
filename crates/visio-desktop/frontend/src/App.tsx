@@ -285,6 +285,7 @@ function HomeView({
   const [meetInstances, setMeetInstances] = useState<string[]>([]);
   const [showServerPicker, setShowServerPicker] = useState(false);
   const [customServer, setCustomServer] = useState("");
+  const [showCreateRoom, setShowCreateRoom] = useState(false);
 
   useEffect(() => {
     invoke<string[]>("get_meet_instances").then(setMeetInstances).catch(() => {});
@@ -497,7 +498,141 @@ function HomeView({
         <button className="btn btn-primary" disabled={joining || roomStatus !== "valid"} onClick={handleJoin}>
           {joining ? t("home.connecting") : t("home.join")}
         </button>
+        {isAuthenticated && meetInstances.length > 0 && (
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: "8px", background: "var(--bg-tertiary)", color: "var(--text)" }}
+            onClick={() => setShowCreateRoom(true)}
+          >
+            {t("home.createRoom")}
+          </button>
+        )}
         <div className="error-msg">{error}</div>
+      </div>
+      {showCreateRoom && (
+        <CreateRoomDialog
+          meetInstances={meetInstances}
+          onCreated={async (createdUrl) => {
+            setShowCreateRoom(false);
+            const uname = displayName.trim() || null;
+            try {
+              await invoke("set_display_name", { name: uname });
+              await invoke("connect", { meetUrl: createdUrl, username: uname });
+              onJoin(createdUrl, uname);
+            } catch (e) {
+              setError(String(e));
+            }
+          }}
+          onCancel={() => setShowCreateRoom(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// -- Create Room Dialog -----------------------------------------------------
+
+function CreateRoomDialog({
+  meetInstances,
+  onCreated,
+  onCancel,
+}: {
+  meetInstances: string[];
+  onCreated: (meetUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const [roomName, setRoomName] = useState("");
+  const [accessLevel, setAccessLevel] = useState<"public" | "trusted">("public");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleCreate = async () => {
+    if (!roomName.trim()) return;
+    setCreating(true);
+    setError("");
+    const meetUrl = `https://${meetInstances[0]}`;
+    try {
+      const result = await invoke<{ slug: string }>("create_room", {
+        meetUrl,
+        name: roomName.trim(),
+        accessLevel,
+      });
+      onCreated(`${meetUrl}/${result.slug}`);
+    } catch (e) {
+      setError(t("home.createRoom.error") + ": " + String(e));
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="settings-modal create-room-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="settings-header">
+          <span>{t("home.createRoom")}</span>
+          <button onClick={onCancel}>
+            <RiCloseLine size={20} />
+          </button>
+        </div>
+        <div className="settings-body">
+          <div className="form-field">
+            <label>{t("home.createRoom.name")}</label>
+            <input
+              className="settings-input"
+              type="text"
+              maxLength={500}
+              placeholder={t("home.createRoom.namePlaceholder")}
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
+              autoFocus
+            />
+          </div>
+          <div className="form-field">
+            <label>{t("home.createRoom.access")}</label>
+            <div className="access-level-options">
+              <label
+                className={`access-option ${accessLevel === "public" ? "selected" : ""}`}
+                onClick={() => setAccessLevel("public")}
+              >
+                <input
+                  type="radio"
+                  name="accessLevel"
+                  value="public"
+                  checked={accessLevel === "public"}
+                  onChange={() => setAccessLevel("public")}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: "0.9rem" }}>{t("home.createRoom.public")}</div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>{t("home.createRoom.publicDesc")}</div>
+                </div>
+              </label>
+              <label
+                className={`access-option ${accessLevel === "trusted" ? "selected" : ""}`}
+                onClick={() => setAccessLevel("trusted")}
+              >
+                <input
+                  type="radio"
+                  name="accessLevel"
+                  value="trusted"
+                  checked={accessLevel === "trusted"}
+                  onChange={() => setAccessLevel("trusted")}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: "0.9rem" }}>{t("home.createRoom.trusted")}</div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>{t("home.createRoom.trustedDesc")}</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          {error && <div className="create-room-error">{error}</div>}
+        </div>
+        <div style={{ display: "flex", gap: "8px", padding: "0 20px 20px", justifyContent: "flex-end" }}>
+          <button className="btn btn-cancel" onClick={onCancel}>{t("home.serverPicker.cancel")}</button>
+          <button className="btn btn-primary" style={{ width: "auto" }} disabled={creating || !roomName.trim()} onClick={handleCreate}>
+            {creating ? t("home.createRoom.creating") : t("home.createRoom.create")}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1342,6 +1342,59 @@ main {
   font-size: 0.85rem;
 }
 
+/* -- Create Room Dialog ---------------------------------------------------- */
+
+.create-room-dialog {
+  max-width: 440px;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-field > label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.access-level-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.access-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.access-option:hover {
+  border-color: var(--text-secondary);
+}
+
+.access-option.selected {
+  border-color: var(--accent);
+}
+
+.access-option input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.create-room-error {
+  color: var(--error-text);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
 .deep-link-error {
   position: fixed;
   top: 16px;
