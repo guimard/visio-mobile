@@ -276,6 +276,7 @@ pub enum SessionState {
 
 #[derive(Debug, Clone)]
 pub struct CreateRoomResult {
+    pub id: String,
     pub slug: String,
     pub name: String,
     pub access_level: String,
@@ -294,6 +295,44 @@ impl From<visio_core::WaitingParticipant> for WaitingParticipant {
         Self {
             id: w.id,
             username: w.username,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UserSearchResult {
+    pub id: String,
+    pub email: String,
+    pub full_name: Option<String>,
+    pub short_name: Option<String>,
+}
+
+impl From<visio_core::UserSearchResult> for UserSearchResult {
+    fn from(u: visio_core::UserSearchResult) -> Self {
+        Self {
+            id: u.id,
+            email: u.email,
+            full_name: u.full_name,
+            short_name: u.short_name,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomAccess {
+    pub id: String,
+    pub user: UserSearchResult,
+    pub resource: String,
+    pub role: String,
+}
+
+impl From<visio_core::RoomAccess> for RoomAccess {
+    fn from(a: visio_core::RoomAccess) -> Self {
+        Self {
+            id: a.id,
+            user: a.user.into(),
+            resource: a.resource,
+            role: a.role,
         }
     }
 }
@@ -818,6 +857,7 @@ impl VisioClient {
         };
 
         Ok(CreateRoomResult {
+            id: result.id,
             slug: result.slug,
             name: result.name,
             access_level: result.access_level,
@@ -847,6 +887,86 @@ impl VisioClient {
 
     pub fn cancel_lobby(&self) {
         self.rt.block_on(self.room_manager.cancel_lobby());
+    }
+
+    pub fn search_users(&self, query: String) -> Result<Vec<UserSearchResult>, VisioError> {
+        let (cookie, meet_instance) = {
+            let session = self.session_manager.lock().unwrap();
+            let cookie = session.cookie().ok_or_else(|| {
+                VisioError::Session { msg: "Not authenticated".to_string() }
+            })?;
+            let instance = session.meet_instance().ok_or_else(|| {
+                VisioError::Session { msg: "No meet instance".to_string() }
+            })?.to_string();
+            (cookie, instance)
+        };
+        let meet_url = format!("https://{}/room", meet_instance);
+
+        let results = self.rt.block_on(
+            visio_core::AccessService::search_users(&meet_url, &cookie, &query)
+        ).map_err(VisioError::from)?;
+
+        Ok(results.into_iter().map(|u| u.into()).collect())
+    }
+
+    pub fn list_accesses(&self, room_id: String) -> Result<Vec<RoomAccess>, VisioError> {
+        let (cookie, meet_instance) = {
+            let session = self.session_manager.lock().unwrap();
+            let cookie = session.cookie().ok_or_else(|| {
+                VisioError::Session { msg: "Not authenticated".to_string() }
+            })?;
+            let instance = session.meet_instance().ok_or_else(|| {
+                VisioError::Session { msg: "No meet instance".to_string() }
+            })?.to_string();
+            (cookie, instance)
+        };
+        let meet_url = format!("https://{}/room", meet_instance);
+
+        let results = self.rt.block_on(
+            visio_core::AccessService::list_accesses(&meet_url, &cookie, &room_id)
+        ).map_err(VisioError::from)?;
+
+        Ok(results.into_iter().map(|a| a.into()).collect())
+    }
+
+    pub fn add_access(&self, user_id: String, room_id: String) -> Result<RoomAccess, VisioError> {
+        let (cookie, meet_instance) = {
+            let session = self.session_manager.lock().unwrap();
+            let cookie = session.cookie().ok_or_else(|| {
+                VisioError::Session { msg: "Not authenticated".to_string() }
+            })?;
+            let instance = session.meet_instance().ok_or_else(|| {
+                VisioError::Session { msg: "No meet instance".to_string() }
+            })?.to_string();
+            (cookie, instance)
+        };
+        let meet_url = format!("https://{}/room", meet_instance);
+
+        let result = self.rt.block_on(
+            visio_core::AccessService::add_access(&meet_url, &cookie, &user_id, &room_id)
+        ).map_err(VisioError::from)?;
+
+        Ok(result.into())
+    }
+
+    pub fn remove_access(&self, access_id: String) -> Result<(), VisioError> {
+        let (cookie, meet_instance) = {
+            let session = self.session_manager.lock().unwrap();
+            let cookie = session.cookie().ok_or_else(|| {
+                VisioError::Session { msg: "Not authenticated".to_string() }
+            })?;
+            let instance = session.meet_instance().ok_or_else(|| {
+                VisioError::Session { msg: "No meet instance".to_string() }
+            })?.to_string();
+            (cookie, instance)
+        };
+        let meet_url = format!("https://{}/room", meet_instance);
+
+        self.rt.block_on(
+            visio_core::AccessService::remove_access(&meet_url, &cookie, &access_id)
+        ).map_err(VisioError::from)?;
+
+        Ok(())
     }
 
     pub fn start_video_renderer(&self, track_sid: String) {

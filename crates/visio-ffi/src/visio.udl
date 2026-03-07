@@ -120,7 +120,22 @@ dictionary WaitingParticipant {
     string username;
 };
 
+dictionary UserSearchResult {
+    string id;
+    string email;
+    string? full_name;
+    string? short_name;
+};
+
+dictionary RoomAccess {
+    string id;
+    UserSearchResult user;
+    string resource;
+    string role;
+};
+
 dictionary CreateRoomResult {
+    string id;
     string slug;
     string name;
     string access_level;
@@ -222,6 +237,18 @@ interface VisioClient {
     void deny_participant(string participant_id);
 
     void cancel_lobby();
+
+    [Throws=VisioError]
+    sequence<UserSearchResult> search_users(string query);
+
+    [Throws=VisioError]
+    sequence<RoomAccess> list_accesses(string room_id);
+
+    [Throws=VisioError]
+    RoomAccess add_access(string user_id, string room_id);
+
+    [Throws=VisioError]
+    void remove_access(string access_id);
 
     void start_video_renderer(string track_sid);
 
