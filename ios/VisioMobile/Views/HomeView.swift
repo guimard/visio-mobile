@@ -57,15 +57,14 @@ struct HomeView: View {
 
                 // Authentication section
                 if manager.isAuthenticated {
-                    VStack(spacing: 4) {
-                        Text("\(Strings.t("home.loggedAs", lang: lang)) \(manager.authenticatedDisplayName)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Button(Strings.t("home.logout", lang: lang)) {
-                            manager.logoutSession()
-                        }
-                        .font(.subheadline)
-                    }
+                    AuthenticatedCard(
+                        displayName: manager.authenticatedDisplayName,
+                        email: manager.authenticatedEmail,
+                        isDark: isDark,
+                        lang: lang,
+                        onLogout: { manager.logoutSession() }
+                    )
+                    .padding(.horizontal, 32)
                 } else {
                     Button(action: {
                         if meetInstances.count <= 1 {
@@ -262,6 +261,67 @@ private struct ServerPickerView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Authenticated Card
+
+private struct AuthenticatedCard: View {
+    let displayName: String
+    let email: String
+    let isDark: Bool
+    let lang: String
+    let onLogout: () -> Void
+
+    private var initials: String {
+        let parts = displayName.split(separator: " ").prefix(2)
+        let result = parts.compactMap { $0.first?.uppercased() }.joined()
+        if !result.isEmpty { return result }
+        return email.first?.uppercased() ?? "?"
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Avatar circle
+            ZStack {
+                Circle()
+                    .fill(VisioColors.primary500)
+                    .frame(width: 44, height: 44)
+                Text(initials)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            // Name and email
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName.isEmpty ? email : displayName)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(VisioColors.onBackground(dark: isDark))
+                    .lineLimit(1)
+                if !email.isEmpty && !displayName.isEmpty {
+                    Text(email)
+                        .font(.caption)
+                        .foregroundStyle(VisioColors.secondaryText(dark: isDark))
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            // Logout button
+            Button(action: onLogout) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .foregroundStyle(VisioColors.secondaryText(dark: isDark))
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(isDark
+                    ? Color(red: 0.12, green: 0.12, blue: 0.18)
+                    : Color(red: 0.95, green: 0.95, blue: 0.97))
+        )
     }
 }
 

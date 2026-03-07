@@ -26,6 +26,7 @@ import {
   RiCloseLine,
   RiSendPlane2Fill,
   RiSettings3Line,
+  RiLogoutBoxRLine,
 } from "@remixicon/react";
 
 // ---------------------------------------------------------------------------
@@ -257,6 +258,7 @@ function HomeView({
   onDeepLinkConsumed,
   isAuthenticated,
   displayNameFromOidc,
+  emailFromOidc,
   onLaunchOidc,
   onLogout,
 }: {
@@ -268,6 +270,7 @@ function HomeView({
   onDeepLinkConsumed: () => void;
   isAuthenticated: boolean;
   displayNameFromOidc: string;
+  emailFromOidc: string;
   onLaunchOidc: (meetInstance: string) => void;
   onLogout: () => void;
 }) {
@@ -357,10 +360,22 @@ function HomeView({
         <h2>{t("app.title")}</h2>
         <p>{t("home.subtitle")}</p>
         {isAuthenticated ? (
-          <div className="auth-status">
-            <span>{t("home.loggedAs")} {displayNameFromOidc}</span>
-            <button className="btn btn-secondary" onClick={onLogout}>
-              {t("home.logout")}
+          <div className="auth-card">
+            <div className="auth-avatar">
+              {(() => {
+                const parts = displayNameFromOidc.split(" ").filter(Boolean).slice(0, 2);
+                const initials = parts.map(p => p[0]?.toUpperCase()).join("");
+                return initials || emailFromOidc?.[0]?.toUpperCase() || "?";
+              })()}
+            </div>
+            <div className="auth-info">
+              <span className="auth-name">{displayNameFromOidc || emailFromOidc}</span>
+              {emailFromOidc && displayNameFromOidc && (
+                <span className="auth-email">{emailFromOidc}</span>
+              )}
+            </div>
+            <button className="auth-logout" onClick={onLogout} title={t("home.logout")}>
+              <RiLogoutBoxRLine size={20} />
             </button>
           </div>
         ) : (
@@ -1197,6 +1212,7 @@ export default function App() {
   // OIDC auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [displayNameFromOidc, setDisplayNameFromOidc] = useState("");
+  const [emailFromOidc, setEmailFromOidc] = useState("");
   const [meetInstances, setMeetInstances] = useState<string[]>([]);
 
   const t = useCallback(
@@ -1214,11 +1230,12 @@ export default function App() {
       })
       .catch(() => {});
     // Load session state
-    invoke<{ state: string; display_name?: string }>("get_session_state")
+    invoke<{ state: string; display_name?: string; email?: string }>("get_session_state")
       .then((result) => {
         if (result.state === "authenticated") {
           setIsAuthenticated(true);
           setDisplayNameFromOidc(result.display_name || "");
+          setEmailFromOidc(result.email || "");
         }
       })
       .catch(() => {});
@@ -1524,6 +1541,7 @@ export default function App() {
               onDeepLinkConsumed={() => setDeepLinkUrl(null)}
               isAuthenticated={isAuthenticated}
               displayNameFromOidc={displayNameFromOidc}
+              emailFromOidc={emailFromOidc}
               onLaunchOidc={(meetInstance: string) => {
                 invoke("launch_oidc", { meetInstance });
               }}
@@ -1532,6 +1550,7 @@ export default function App() {
                   invoke("logout_session", { meetUrl: `https://${meetInstances[0]}` }).then(() => {
                     setIsAuthenticated(false);
                     setDisplayNameFromOidc("");
+                    setEmailFromOidc("");
                   });
                 }
               }}

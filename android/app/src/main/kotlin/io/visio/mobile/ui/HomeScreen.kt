@@ -3,6 +3,7 @@ package io.visio.mobile.ui
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -206,14 +207,13 @@ fun HomeScreen(
 
         // Connect / Logout section
         if (VisioManager.isAuthenticated) {
-            Text(
-                text = "${Strings.t("home.loggedAs", lang)} ${VisioManager.authenticatedDisplayName}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
+            AuthenticatedCard(
+                displayName = VisioManager.authenticatedDisplayName,
+                email = VisioManager.authenticatedEmail,
+                isDark = isDark,
+                lang = lang,
+                onLogout = { VisioManager.logout() },
             )
-            TextButton(onClick = { VisioManager.logout() }) {
-                Text(Strings.t("home.logout", lang))
-            }
         } else {
             Button(
                 onClick = {
@@ -365,6 +365,84 @@ fun HomeScreen(
                 Strings.t("home.join", lang),
                 fontSize = 16.sp,
                 modifier = Modifier.padding(vertical = 4.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AuthenticatedCard(
+    displayName: String,
+    email: String,
+    isDark: Boolean,
+    lang: String,
+    onLogout: () -> Unit,
+) {
+    val initials = displayName
+        .split(" ")
+        .filter { it.isNotEmpty() }
+        .take(2)
+        .joinToString("") { it.first().uppercase() }
+        .ifEmpty { email.firstOrNull()?.uppercase()?.toString() ?: "?" }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = if (isDark) VisioColors.PrimaryDark100 else VisioColors.LightSurfaceVariant,
+                shape = RoundedCornerShape(16.dp),
+            )
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Avatar circle with initials
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(
+                    color = VisioColors.Primary500,
+                    shape = RoundedCornerShape(22.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = initials,
+                color = VisioColors.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+        }
+        // Name and email
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = displayName.ifEmpty { email },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            if (email.isNotEmpty() && displayName.isNotEmpty()) {
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
+        }
+        // Logout button
+        IconButton(
+            onClick = onLogout,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ri_logout_box_r_line),
+                contentDescription = Strings.t("home.logout", lang),
+                tint = if (isDark) VisioColors.Greyscale400 else VisioColors.LightTextSecondary,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
