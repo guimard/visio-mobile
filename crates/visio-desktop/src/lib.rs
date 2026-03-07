@@ -629,9 +629,10 @@ async fn set_chat_open(state: tauri::State<'_, VisioState>, open: bool) -> Resul
 
 #[tauri::command]
 async fn launch_oidc(meet_instance: String) -> Result<(), String> {
+    let return_to = format!("https://{}/", meet_instance).replace(":", "%3A").replace("/", "%2F");
     let url = format!(
-        "https://{}/authenticate/?returnTo=https://{}/",
-        meet_instance, meet_instance
+        "https://{}/api/v1.0/authenticate/?returnTo={}",
+        meet_instance, return_to
     );
     open::that(&url).map_err(|e| e.to_string())?;
     Ok(())

@@ -13,7 +13,9 @@ class OidcAuthManager: NSObject, ASWebAuthenticationPresentationContextProviding
     }
 
     func launchOidcFlow(meetInstance: String, completion: @escaping (String?) -> Void) {
-        guard let authURL = URL(string: "https://\(meetInstance)/authenticate/?returnTo=https://\(meetInstance)/") else {
+        let returnTo = "https://\(meetInstance)/"
+        let encodedReturnTo = returnTo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? returnTo
+        guard let authURL = URL(string: "https://\(meetInstance)/api/v1.0/authenticate/?returnTo=\(encodedReturnTo)") else {
             completion(nil)
             return
         }
