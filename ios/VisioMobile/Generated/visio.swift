@@ -509,6 +509,8 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     
     func addListener(listener: VisioEventListener) 
     
+    func authenticate(meetUrl: String, cookie: String) throws 
+    
     func chatMessages()  -> [ChatMessage]
     
     func connect(meetUrl: String, username: String?) throws 
@@ -519,6 +521,8 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     
     func getMeetInstances()  -> [String]
     
+    func getSessionState()  -> SessionState
+    
     func getSettings()  -> Settings
     
     func isCameraEnabled()  -> Bool
@@ -526,6 +530,8 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     func isHandRaised()  -> Bool
     
     func isMicrophoneEnabled()  -> Bool
+    
+    func logout(meetUrl: String) throws 
     
     func lowerHand() throws 
     
@@ -568,6 +574,8 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     func unreadCount()  -> UInt32
     
     func validateRoom(url: String, username: String?)  -> RoomValidationResult
+    
+    func validateSession(meetUrl: String) throws  -> Bool
     
 }
 open class VisioClient: VisioClientProtocol, @unchecked Sendable {
@@ -644,6 +652,14 @@ open func addListener(listener: VisioEventListener)  {try! rustCall() {
 }
 }
     
+open func authenticate(meetUrl: String, cookie: String)throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_authenticate(self.uniffiClonePointer(),
+        FfiConverterString.lower(meetUrl),
+        FfiConverterString.lower(cookie),$0
+    )
+}
+}
+    
 open func chatMessages() -> [ChatMessage]  {
     return try!  FfiConverterSequenceTypeChatMessage.lift(try! rustCall() {
     uniffi_visio_ffi_fn_method_visioclient_chat_messages(self.uniffiClonePointer(),$0
@@ -679,6 +695,13 @@ open func getMeetInstances() -> [String]  {
 })
 }
     
+open func getSessionState() -> SessionState  {
+    return try!  FfiConverterTypeSessionState_lift(try! rustCall() {
+    uniffi_visio_ffi_fn_method_visioclient_get_session_state(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
 open func getSettings() -> Settings  {
     return try!  FfiConverterTypeSettings_lift(try! rustCall() {
     uniffi_visio_ffi_fn_method_visioclient_get_settings(self.uniffiClonePointer(),$0
@@ -705,6 +728,13 @@ open func isMicrophoneEnabled() -> Bool  {
     uniffi_visio_ffi_fn_method_visioclient_is_microphone_enabled(self.uniffiClonePointer(),$0
     )
 })
+}
+    
+open func logout(meetUrl: String)throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_logout(self.uniffiClonePointer(),
+        FfiConverterString.lower(meetUrl),$0
+    )
+}
 }
     
 open func lowerHand()throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
@@ -850,6 +880,14 @@ open func validateRoom(url: String, username: String?) -> RoomValidationResult  
     uniffi_visio_ffi_fn_method_visioclient_validate_room(self.uniffiClonePointer(),
         FfiConverterString.lower(url),
         FfiConverterOptionString.lower(username),$0
+    )
+})
+}
+    
+open func validateSession(meetUrl: String)throws  -> Bool  {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_validate_session(self.uniffiClonePointer(),
+        FfiConverterString.lower(meetUrl),$0
     )
 })
 }
@@ -1593,6 +1631,80 @@ extension RoomValidationResult: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum SessionState {
+    
+    case anonymous
+    case authenticated(displayName: String, email: String
+    )
+}
+
+
+#if compiler(>=6)
+extension SessionState: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSessionState: FfiConverterRustBuffer {
+    typealias SwiftType = SessionState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SessionState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .anonymous
+        
+        case 2: return .authenticated(displayName: try FfiConverterString.read(from: &buf), email: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SessionState, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .anonymous:
+            writeInt(&buf, Int32(1))
+        
+        
+        case let .authenticated(displayName,email):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(displayName, into: &buf)
+            FfiConverterString.write(email, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSessionState_lift(_ buf: RustBuffer) throws -> SessionState {
+    return try FfiConverterTypeSessionState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSessionState_lower(_ value: SessionState) -> RustBuffer {
+    return FfiConverterTypeSessionState.lower(value)
+}
+
+
+extension SessionState: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum TrackKind {
     
     case audio
@@ -1759,6 +1871,8 @@ public enum VisioError: Swift.Error {
     )
     case InvalidUrl(msg: String
     )
+    case Session(msg: String
+    )
 }
 
 
@@ -1788,6 +1902,9 @@ public struct FfiConverterTypeVisioError: FfiConverterRustBuffer {
             msg: try FfiConverterString.read(from: &buf)
             )
         case 5: return .InvalidUrl(
+            msg: try FfiConverterString.read(from: &buf)
+            )
+        case 6: return .Session(
             msg: try FfiConverterString.read(from: &buf)
             )
 
@@ -1824,6 +1941,11 @@ public struct FfiConverterTypeVisioError: FfiConverterRustBuffer {
         
         case let .InvalidUrl(msg):
             writeInt(&buf, Int32(5))
+            FfiConverterString.write(msg, into: &buf)
+            
+        
+        case let .Session(msg):
+            writeInt(&buf, Int32(6))
             FfiConverterString.write(msg, into: &buf)
             
         }
@@ -2292,6 +2414,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_visio_ffi_checksum_method_visioclient_add_listener() != 29296) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_visio_ffi_checksum_method_visioclient_authenticate() != 9943) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_visio_ffi_checksum_method_visioclient_chat_messages() != 48857) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2307,6 +2432,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_visio_ffi_checksum_method_visioclient_get_meet_instances() != 1312) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_visio_ffi_checksum_method_visioclient_get_session_state() != 38004) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_visio_ffi_checksum_method_visioclient_get_settings() != 24786) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2317,6 +2445,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_is_microphone_enabled() != 33466) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_logout() != 27303) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_lower_hand() != 53728) {
@@ -2380,6 +2511,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_validate_room() != 14512) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_validate_session() != 29581) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_constructor_visioclient_new() != 10250) {

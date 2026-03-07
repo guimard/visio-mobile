@@ -29,6 +29,11 @@ class VisioManager: ObservableObject {
     @Published var displayName: String = ""
     @Published var pendingDeepLink: String? = nil
     @Published var isFrontCamera: Bool = true
+    @Published var isAuthenticated: Bool = false
+    @Published var authenticatedDisplayName: String = ""
+    @Published var authenticatedEmail: String = ""
+
+    let authManager = OidcAuthManager()
 
     // MARK: - Private
 
@@ -235,6 +240,74 @@ class VisioManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.errorMessage = "Send failed: \(error.localizedDescription)"
                 }
+            }
+        }
+    }
+
+    // MARK: - Authentication
+
+    func initAuth() {
+        guard let cookie = authManager.getSavedCookie(),
+              let meetInstance = client.getMeetInstances().first else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.client.authenticate(meetUrl: "https://\(meetInstance)", cookie: cookie)
+                let state = self.client.getSessionState()
+                DispatchQueue.main.async {
+                    self.updateSessionFromState(state)
+                }
+            } catch {
+                self.authManager.clearCookie()
+            }
+        }
+    }
+
+    private func updateSessionFromState(_ state: SessionState) {
+        switch state {
+        case .authenticated(let displayName, let email):
+            isAuthenticated = true
+            authenticatedDisplayName = displayName
+            authenticatedEmail = email
+            if self.displayName.isEmpty {
+                self.displayName = displayName
+            }
+        case .anonymous:
+            isAuthenticated = false
+            authenticatedDisplayName = ""
+            authenticatedEmail = ""
+        }
+    }
+
+    func onAuthCookieReceived(_ cookie: String) {
+        authManager.saveCookie(cookie)
+        guard let meetInstance = client.getMeetInstances().first else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.client.authenticate(meetUrl: "https://\(meetInstance)", cookie: cookie)
+                let state = self.client.getSessionState()
+                DispatchQueue.main.async {
+                    self.updateSessionFromState(state)
+                }
+            } catch {
+                self.authManager.clearCookie()
+            }
+        }
+    }
+
+    func logoutSession() {
+        guard let meetInstance = client.getMeetInstances().first else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            try? self.client.logout(meetUrl: "https://\(meetInstance)")
+            self.authManager.clearCookie()
+            DispatchQueue.main.async {
+                self.isAuthenticated = false
+                self.authenticatedDisplayName = ""
+                self.authenticatedEmail = ""
             }
         }
     }

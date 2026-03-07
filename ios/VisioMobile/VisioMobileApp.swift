@@ -17,6 +17,7 @@ struct VisioMobileApp: App {
             }
             .environmentObject(manager)
             .preferredColorScheme(manager.currentTheme == "dark" ? .dark : .light)
+            .onAppear { manager.initAuth() }
             .onOpenURL { url in
                 guard url.scheme == "visio",
                       let host = url.host,
