@@ -1,4 +1,7 @@
+use reqwest::header::{HeaderMap, HeaderValue, COOKIE};
 use serde::{Deserialize, Serialize};
+
+use crate::errors::VisioError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
@@ -54,6 +57,76 @@ impl SessionManager {
             SessionState::Authenticated { user, .. } => Some(user),
             SessionState::Anonymous => None,
         }
+    }
+
+    pub async fn fetch_user(meet_url: &str, cookie: &str) -> Result<UserInfo, VisioError> {
+        let url = format!("{}/api/v1.0/users/me/", meet_url);
+
+        let mut headers = HeaderMap::new();
+        let cookie_value = format!("sessionid={}", cookie);
+        headers.insert(
+            COOKIE,
+            HeaderValue::from_str(&cookie_value)
+                .map_err(|e| VisioError::Http(e.to_string()))?,
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .headers(headers)
+            .send()
+            .await
+            .map_err(|e| VisioError::Http(e.to_string()))?;
+
+        let status = response.status();
+        if status == reqwest::StatusCode::UNAUTHORIZED
+            || status == reqwest::StatusCode::FORBIDDEN
+        {
+            return Err(VisioError::Session(
+                "Session expired or invalid".to_string(),
+            ));
+        }
+
+        let body = response
+            .text()
+            .await
+            .map_err(|e| VisioError::Http(e.to_string()))?;
+
+        serde_json::from_str::<UserInfo>(&body)
+            .map_err(|e| VisioError::Session(format!("Failed to parse user info: {}", e)))
+    }
+
+    pub async fn validate_session(&mut self, meet_url: &str) -> Result<bool, VisioError> {
+        let cookie = match self.cookie() {
+            Some(c) => c,
+            None => return Ok(false),
+        };
+
+        match Self::fetch_user(meet_url, &cookie).await {
+            Ok(user) => {
+                self.state = SessionState::Authenticated { user, cookie };
+                Ok(true)
+            }
+            Err(_) => {
+                self.clear();
+                Ok(false)
+            }
+        }
+    }
+
+    pub async fn logout(&mut self, meet_url: &str) -> Result<(), VisioError> {
+        if let Some(cookie) = self.cookie() {
+            let url = format!("{}/logout", meet_url);
+            let mut headers = HeaderMap::new();
+            let cookie_value = format!("sessionid={}", cookie);
+            if let Ok(val) = HeaderValue::from_str(&cookie_value) {
+                headers.insert(COOKIE, val);
+                let client = reqwest::Client::new();
+                let _ = client.get(&url).headers(headers).send().await;
+            }
+        }
+        self.clear();
+        Ok(())
     }
 }
 
@@ -113,5 +186,12 @@ mod tests {
         };
         session.set_authenticated(user, "mycookie".to_string());
         assert_eq!(session.cookie(), Some("mycookie".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_user_with_invalid_cookie_returns_error() {
+        let result =
+            SessionManager::fetch_user("https://meet.example.com", "invalid_cookie").await;
+        assert!(result.is_err());
     }
 }
