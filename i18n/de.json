@@ -134,5 +134,14 @@
   "settings.incall.roomLink": "Raumlink",
   "settings.incall.deepLink": "App-Link",
   "settings.incall.share": "Link teilen",
-  "settings.incall.copied": "Kopiert!"
+  "settings.incall.copied": "Kopiert!",
+  "lobby.waiting": "Warte auf Genehmigung des Gastgebers...",
+  "lobby.waitingDesc": "Der Gastgeber wird Sie bald einlassen",
+  "lobby.denied": "Zutritt vom Gastgeber verweigert",
+  "lobby.cancel": "Abbrechen",
+  "lobby.waitingParticipants": "Wartezimmer",
+  "lobby.admit": "Zulassen",
+  "lobby.deny": "Ablehnen",
+  "lobby.admitAll": "Alle zulassen",
+  "lobby.badge": "{count} wartend"
 }

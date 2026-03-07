@@ -134,5 +134,14 @@
   "settings.incall.roomLink": "Link della stanza",
   "settings.incall.deepLink": "Link app",
   "settings.incall.share": "Condividi link",
-  "settings.incall.copied": "Copiato!"
+  "settings.incall.copied": "Copiato!",
+  "lobby.waiting": "In attesa dell'approvazione dell'host...",
+  "lobby.waitingDesc": "L'host ti farà entrare presto",
+  "lobby.denied": "Ingresso negato dall'host",
+  "lobby.cancel": "Annulla",
+  "lobby.waitingParticipants": "Sala d'attesa",
+  "lobby.admit": "Ammetti",
+  "lobby.deny": "Rifiuta",
+  "lobby.admitAll": "Ammetti tutti",
+  "lobby.badge": "{count} in attesa"
 }

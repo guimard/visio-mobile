@@ -138,5 +138,14 @@
   "settings.incall.roomLink": "Lien de la salle",
   "settings.incall.deepLink": "Lien application",
   "settings.incall.share": "Partager le lien",
-  "settings.incall.copied": "Copié !"
+  "settings.incall.copied": "Copié !",
+  "lobby.waiting": "En attente d'approbation de l'hôte...",
+  "lobby.waitingDesc": "L'hôte vous laissera entrer bientôt",
+  "lobby.denied": "Entrée refusée par l'hôte",
+  "lobby.cancel": "Annuler",
+  "lobby.waitingParticipants": "Salle d'attente",
+  "lobby.admit": "Admettre",
+  "lobby.deny": "Refuser",
+  "lobby.admitAll": "Admettre tous",
+  "lobby.badge": "{count} en attente"
 }

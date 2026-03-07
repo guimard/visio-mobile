@@ -138,5 +138,14 @@
   "settings.incall.roomLink": "Room link",
   "settings.incall.deepLink": "App link",
   "settings.incall.share": "Share link",
-  "settings.incall.copied": "Copied!"
+  "settings.incall.copied": "Copied!",
+  "lobby.waiting": "Waiting for host approval...",
+  "lobby.waitingDesc": "The host will let you in soon",
+  "lobby.denied": "Entry denied by host",
+  "lobby.cancel": "Cancel",
+  "lobby.waitingParticipants": "Waiting room",
+  "lobby.admit": "Admit",
+  "lobby.deny": "Deny",
+  "lobby.admitAll": "Admit all",
+  "lobby.badge": "{count} waiting"
 }
