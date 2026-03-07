@@ -215,7 +215,6 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showCreateRoom) {
             CreateRoomSheet(
-                meetInstances: meetInstances,
                 lang: lang,
                 onCreated: { roomUrl in
                     showCreateRoom = false
@@ -360,87 +359,162 @@ private struct AuthenticatedCard: View {
 
 private struct CreateRoomSheet: View {
     @EnvironmentObject private var manager: VisioManager
-    let meetInstances: [String]
     let lang: String
     let onCreated: (String) -> Void
     let onCancel: () -> Void
 
-    @State private var name: String = ""
     @State private var accessLevel: String = "public"
     @State private var creating: Bool = false
     @State private var error: String? = nil
+    @State private var createdUrl: String? = nil
+    @State private var copiedHttp: Bool = false
+    @State private var copiedDeep: Bool = false
+
+    private var deepLink: String {
+        guard let url = createdUrl else { return "" }
+        let stripped = url.replacingOccurrences(of: "https://", with: "")
+        return "visio://\(stripped)"
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField(Strings.t("home.createRoom.namePlaceholder", lang: lang), text: $name)
-                } header: {
-                    Text(Strings.t("home.createRoom.name", lang: lang))
-                }
-
-                Section {
-                    Picker(Strings.t("home.createRoom.access", lang: lang), selection: $accessLevel) {
-                        Text(Strings.t("home.createRoom.public", lang: lang)).tag("public")
-                        Text(Strings.t("home.createRoom.trusted", lang: lang)).tag("trusted")
-                    }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-
-                    if accessLevel == "public" {
-                        Text(Strings.t("home.createRoom.publicDesc", lang: lang))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text(Strings.t("home.createRoom.trustedDesc", lang: lang))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text(Strings.t("home.createRoom.access", lang: lang))
-                }
-
-                if let error {
+                if createdUrl == nil {
                     Section {
-                        Text(error)
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    }
-                }
+                        Picker(Strings.t("home.createRoom.access", lang: lang), selection: $accessLevel) {
+                            Text(Strings.t("home.createRoom.public", lang: lang)).tag("public")
+                            Text(Strings.t("home.createRoom.trusted", lang: lang)).tag("trusted")
+                        }
+                        .pickerStyle(.inline)
+                        .labelsHidden()
 
-                Section {
-                    Button {
-                        guard let meetInstance = meetInstances.first else { return }
-                        creating = true
-                        error = nil
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            do {
-                                let result = try manager.client.createRoom(
-                                    meetUrl: "https://\(meetInstance)",
-                                    name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                                    accessLevel: accessLevel
-                                )
-                                DispatchQueue.main.async {
-                                    onCreated("https://\(meetInstance)/\(result.slug)")
-                                }
-                            } catch {
-                                DispatchQueue.main.async {
-                                    self.error = error.localizedDescription
-                                    creating = false
+                        if accessLevel == "public" {
+                            Text(Strings.t("home.createRoom.publicDesc", lang: lang))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(Strings.t("home.createRoom.trustedDesc", lang: lang))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } header: {
+                        Text(Strings.t("home.createRoom.access", lang: lang))
+                    }
+
+                    if let error {
+                        Section {
+                            Text(error)
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                        }
+                    }
+
+                    Section {
+                        Button {
+                            let meetInstance = manager.authenticatedMeetInstance
+                            guard !meetInstance.isEmpty else { return }
+                            creating = true
+                            error = nil
+                            DispatchQueue.global(qos: .userInitiated).async {
+                                do {
+                                    let result = try manager.client.createRoom(
+                                        meetUrl: "https://\(meetInstance)",
+                                        name: "",
+                                        accessLevel: accessLevel
+                                    )
+                                    DispatchQueue.main.async {
+                                        createdUrl = "https://\(meetInstance)/\(result.slug)"
+                                        creating = false
+                                    }
+                                } catch {
+                                    DispatchQueue.main.async {
+                                        self.error = error.localizedDescription
+                                        creating = false
+                                    }
                                 }
                             }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text(creating
+                                    ? Strings.t("home.createRoom.creating", lang: lang)
+                                    : Strings.t("home.createRoom.create", lang: lang))
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
                         }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text(creating
-                                ? Strings.t("home.createRoom.creating", lang: lang)
-                                : Strings.t("home.createRoom.create", lang: lang))
-                                .fontWeight(.semibold)
-                            Spacer()
+                        .disabled(creating)
+                    }
+                } else {
+                    Section {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Image(systemName: "globe")
+                                    .font(.caption)
+                                Text(Strings.t("settings.incall.roomLink", lang: lang))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Button {
+                                    UIPasteboard.general.string = createdUrl
+                                    copiedHttp = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copiedHttp = false }
+                                } label: {
+                                    Image(systemName: copiedHttp ? "checkmark" : "doc.on.doc")
+                                        .font(.caption)
+                                }
+                                ShareLink(item: createdUrl!) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.caption)
+                                }
+                            }
+                            TextField("", text: .constant(createdUrl!))
+                                .font(.caption)
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(true)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Image(systemName: "iphone")
+                                    .font(.caption)
+                                Text(Strings.t("settings.incall.deepLink", lang: lang))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Button {
+                                    UIPasteboard.general.string = deepLink
+                                    copiedDeep = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copiedDeep = false }
+                                } label: {
+                                    Image(systemName: copiedDeep ? "checkmark" : "doc.on.doc")
+                                        .font(.caption)
+                                }
+                                ShareLink(item: deepLink) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.caption)
+                                }
+                            }
+                            TextField("", text: .constant(deepLink))
+                                .font(.caption)
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(true)
+                        }
+                    } header: {
+                        Text(Strings.t("settings.incall.roomInfo", lang: lang))
+                    }
+
+                    Section {
+                        Button {
+                            onCreated(createdUrl!)
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Label(Strings.t("home.join", lang: lang), systemImage: "phone.fill")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
                         }
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || creating)
                 }
             }
             .navigationTitle(Strings.t("home.createRoom", lang: lang))

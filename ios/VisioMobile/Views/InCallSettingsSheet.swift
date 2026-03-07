@@ -16,10 +16,10 @@ struct InCallSettingsSheet: View {
             HStack(spacing: 0) {
                 // Sidebar icons
                 VStack(spacing: 4) {
-                    tabButton(icon: "mic.fill", tab: 0, label: Strings.t("settings.incall.micro", lang: lang))
-                    tabButton(icon: "video.fill", tab: 1, label: Strings.t("settings.incall.camera", lang: lang))
-                    tabButton(icon: "bell.fill", tab: 2, label: Strings.t("settings.incall.notifications", lang: lang))
-                    tabButton(icon: "info.circle.fill", tab: 3, label: Strings.t("settings.incall.roomInfo", lang: lang))
+                    tabButton(icon: "info.circle.fill", tab: 0, label: Strings.t("settings.incall.roomInfo", lang: lang))
+                    tabButton(icon: "mic.fill", tab: 1, label: Strings.t("settings.incall.micro", lang: lang))
+                    tabButton(icon: "video.fill", tab: 2, label: Strings.t("settings.incall.camera", lang: lang))
+                    tabButton(icon: "bell.fill", tab: 3, label: Strings.t("settings.incall.notifications", lang: lang))
                     Spacer()
                 }
                 .padding(.vertical, 12)
@@ -31,11 +31,11 @@ struct InCallSettingsSheet: View {
                 // Content area
                 Group {
                     switch selectedTab {
-                    case 0: microTab
-                    case 1: cameraTab
-                    case 2: notificationsTab
-                    case 3: roomInfoTab
-                    default: microTab
+                    case 0: roomInfoTab
+                    case 1: microTab
+                    case 2: cameraTab
+                    case 3: notificationsTab
+                    default: roomInfoTab
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -137,20 +137,15 @@ struct InCallSettingsSheet: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // HTTPS link
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(Strings.t("settings.incall.roomLink", lang: lang))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(VisioColors.onBackground(dark: isDark))
-
+                VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "globe")
                             .foregroundStyle(VisioColors.primary500)
-                        Text(displayUrl)
                             .font(.caption)
+                        Text(Strings.t("settings.incall.roomLink", lang: lang))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                             .foregroundStyle(VisioColors.onBackground(dark: isDark))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
                         Spacer()
                         Button {
                             UIPasteboard.general.string = roomURL
@@ -158,27 +153,27 @@ struct InCallSettingsSheet: View {
                             Image(systemName: "doc.on.doc")
                                 .font(.caption)
                         }
+                        ShareLink(item: roomURL) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.caption)
+                        }
                     }
-                    .padding(12)
-                    .background(VisioColors.surface(dark: isDark))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    TextField("", text: .constant(roomURL))
+                        .font(.caption)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(true)
                 }
 
                 // Deep link
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(Strings.t("settings.incall.deepLink", lang: lang))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(VisioColors.onBackground(dark: isDark))
-
+                VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "apps.iphone")
                             .foregroundStyle(VisioColors.primary500)
-                        Text(deepLink)
                             .font(.caption)
+                        Text(Strings.t("settings.incall.deepLink", lang: lang))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                             .foregroundStyle(VisioColors.onBackground(dark: isDark))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
                         Spacer()
                         Button {
                             UIPasteboard.general.string = deepLink
@@ -186,20 +181,16 @@ struct InCallSettingsSheet: View {
                             Image(systemName: "doc.on.doc")
                                 .font(.caption)
                         }
+                        ShareLink(item: deepLink) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.caption)
+                        }
                     }
-                    .padding(12)
-                    .background(VisioColors.surface(dark: isDark))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    TextField("", text: .constant(deepLink))
+                        .font(.caption)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(true)
                 }
-
-                // Share button
-                ShareLink(item: roomURL) {
-                    Label(Strings.t("settings.incall.share", lang: lang), systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(VisioColors.primary500)
             }
             .padding()
         }
