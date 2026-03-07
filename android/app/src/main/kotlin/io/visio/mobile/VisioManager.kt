@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.visio.mobile.auth.OidcAuthManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,9 +18,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uniffi.visio.ChatMessage
 import uniffi.visio.ConnectionState
 import uniffi.visio.ParticipantInfo
+import uniffi.visio.SessionState
 import uniffi.visio.VisioClient
 import uniffi.visio.VisioEvent
 import uniffi.visio.VisioEventListener
@@ -78,6 +81,17 @@ object VisioManager : VisioEventListener {
     var displayName by mutableStateOf("")
         private set
 
+    // Session state properties
+    var isAuthenticated by mutableStateOf(false)
+        private set
+    var authenticatedDisplayName by mutableStateOf("")
+        private set
+    var authenticatedEmail by mutableStateOf("")
+        private set
+
+    lateinit var authManager: OidcAuthManager
+        private set
+
     private var initialized = false
 
     fun initialize(context: Context) {
@@ -110,6 +124,75 @@ object VisioManager : VisioEventListener {
 
     fun updateDisplayName(name: String) {
         displayName = name
+    }
+
+    fun initAuth(context: Context) {
+        authManager = OidcAuthManager(context)
+        // Try to restore session on launch
+        val savedCookie = authManager.getSavedCookie()
+        if (savedCookie != null) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val meetInstance = client.getMeetInstances().firstOrNull() ?: return@launch
+                    client.authenticate("https://$meetInstance", savedCookie)
+                    val state = client.getSessionState()
+                    withContext(Dispatchers.Main) {
+                        updateSessionFromState(state)
+                    }
+                } catch (e: Exception) {
+                    authManager.clearCookie()
+                }
+            }
+        }
+    }
+
+    private fun updateSessionFromState(state: SessionState) {
+        when (state) {
+            is SessionState.Authenticated -> {
+                isAuthenticated = true
+                authenticatedDisplayName = state.displayName
+                authenticatedEmail = state.email
+                if (displayName.isEmpty()) {
+                    displayName = state.displayName
+                }
+            }
+            is SessionState.Anonymous -> {
+                isAuthenticated = false
+                authenticatedDisplayName = ""
+                authenticatedEmail = ""
+            }
+        }
+    }
+
+    fun onAuthCookieReceived(cookie: String) {
+        authManager.saveCookie(cookie)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val meetInstance = client.getMeetInstances().firstOrNull() ?: return@launch
+                client.authenticate("https://$meetInstance", cookie)
+                val state = client.getSessionState()
+                withContext(Dispatchers.Main) {
+                    updateSessionFromState(state)
+                }
+            } catch (e: Exception) {
+                authManager.clearCookie()
+            }
+        }
+    }
+
+    fun logout() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val meetInstance = client.getMeetInstances().firstOrNull() ?: return@launch
+                client.logout("https://$meetInstance")
+            } catch (_: Exception) {}
+            authManager.clearCookie()
+            withContext(Dispatchers.Main) {
+                isAuthenticated = false
+                authenticatedDisplayName = ""
+                authenticatedEmail = ""
+            }
+        }
     }
 
     /**

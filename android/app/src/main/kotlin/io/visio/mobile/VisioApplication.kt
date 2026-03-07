@@ -24,5 +24,6 @@ class VisioApplication : Application() {
         }
         Strings.init(this)
         VisioManager.initialize(applicationContext)
+        VisioManager.initAuth(applicationContext)
     }
 }
