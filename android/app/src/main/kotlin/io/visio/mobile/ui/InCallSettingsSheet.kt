@@ -10,24 +10,29 @@ import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,8 +48,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +65,8 @@ import io.visio.mobile.R
 import io.visio.mobile.VisioManager
 import io.visio.mobile.ui.i18n.Strings
 import io.visio.mobile.ui.theme.VisioColors
+import kotlinx.coroutines.delay
+import uniffi.visio.UserSearchResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,6 +141,14 @@ fun InCallSettingsSheet(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
                 )
+                if (VisioManager.currentAccessLevel == "restricted") {
+                    TabIcon(
+                        icon = Icons.Outlined.People,
+                        label = Strings.t("restricted.members", lang),
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                    )
+                }
             }
 
             // Right content
@@ -164,6 +181,7 @@ fun InCallSettingsSheet(
                                 VisioManager.client.setNotificationMessageReceived(enabled)
                             },
                         )
+                    4 -> MembersTab(lang = lang)
                 }
             }
         }
@@ -617,6 +635,122 @@ private fun RoomInfoTab(roomUrl: String, lang: String) {
                 cursorColor = VisioColors.Primary500,
             ),
         )
+    }
+}
+
+@Composable
+private fun MembersTab(lang: String) {
+    val accesses by VisioManager.roomAccesses.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<UserSearchResult>>(emptyList()) }
+
+    LaunchedEffect(Unit) { VisioManager.refreshAccesses() }
+
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.length < 3) {
+            searchResults = emptyList()
+            return@LaunchedEffect
+        }
+        delay(300)
+        try {
+            searchResults = VisioManager.client.searchUsers(searchQuery)
+        } catch (_: Exception) {
+            searchResults = emptyList()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .padding(8.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SectionHeader(Strings.t("restricted.members", lang))
+
+        // Search field
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text(Strings.t("restricted.searchUsers", lang), color = VisioColors.White.copy(alpha = 0.5f)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall.copy(color = VisioColors.White),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = VisioColors.Primary500,
+                unfocusedBorderColor = VisioColors.White.copy(alpha = 0.3f),
+                cursorColor = VisioColors.Primary500,
+            ),
+        )
+
+        // Search results
+        searchResults.forEach { user ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        VisioManager.addAccessMember(user.id) {
+                            searchQuery = ""
+                            searchResults = emptyList()
+                        }
+                    }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        user.fullName ?: user.email,
+                        color = VisioColors.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        user.email,
+                        color = VisioColors.White.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Current members
+        accesses.forEach { access ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        access.user.fullName ?: access.user.email,
+                        color = VisioColors.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        Strings.t("restricted.${access.role}", lang),
+                        color = VisioColors.White.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (access.role == "member") {
+                    Button(
+                        onClick = { VisioManager.removeAccessMember(access.id) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = VisioColors.Error500.copy(alpha = 0.2f),
+                            contentColor = VisioColors.Error500,
+                        ),
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                    ) {
+                        Text(
+                            Strings.t("restricted.remove", lang),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

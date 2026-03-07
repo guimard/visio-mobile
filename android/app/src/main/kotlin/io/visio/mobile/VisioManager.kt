@@ -23,6 +23,8 @@ import uniffi.visio.ChatMessage
 import uniffi.visio.ConnectionState
 import uniffi.visio.ParticipantInfo
 import uniffi.visio.SessionState
+import uniffi.visio.RoomAccess
+import uniffi.visio.UserSearchResult
 import uniffi.visio.VisioClient
 import uniffi.visio.VisioEvent
 import uniffi.visio.VisioEventListener
@@ -78,6 +80,16 @@ object VisioManager : VisioEventListener {
     // Lobby: whether entry was denied by host
     private val _lobbyDenied = MutableStateFlow(false)
     val lobbyDenied: MutableStateFlow<Boolean> = _lobbyDenied
+
+    // Room access management for restricted rooms
+    var currentRoomId: String? = null
+        private set
+
+    private val _roomAccesses = MutableStateFlow<List<RoomAccess>>(emptyList())
+    val roomAccesses: StateFlow<List<RoomAccess>> = _roomAccesses
+
+    private var _currentAccessLevel: String = ""
+    val currentAccessLevel: String get() = _currentAccessLevel
 
     // Deep link: pre-fill room URL on HomeScreen
     var pendingDeepLink: String? by mutableStateOf(null)
@@ -347,6 +359,41 @@ object VisioManager : VisioEventListener {
      */
     fun cancelLobby() {
         client.cancelLobby()
+    }
+
+    fun setCurrentRoom(roomId: String?, accessLevel: String) {
+        currentRoomId = roomId
+        _currentAccessLevel = accessLevel
+    }
+
+    fun refreshAccesses() {
+        val roomId = currentRoomId ?: return
+        scope.launch {
+            try {
+                val accesses = client.listAccesses(roomId)
+                _roomAccesses.value = accesses
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun addAccessMember(userId: String, onDone: () -> Unit = {}) {
+        val roomId = currentRoomId ?: return
+        scope.launch {
+            try {
+                client.addAccess(userId, roomId)
+                refreshAccesses()
+            } catch (_: Exception) { }
+            withContext(Dispatchers.Main) { onDone() }
+        }
+    }
+
+    fun removeAccessMember(accessId: String) {
+        scope.launch {
+            try {
+                client.removeAccess(accessId)
+                refreshAccesses()
+            } catch (_: Exception) { }
+        }
     }
 
     /**
