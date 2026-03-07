@@ -38,8 +38,16 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 NSLog("CameraCapture: no front camera, trying any position")
                 device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified)
             }
-            guard let device, let input = try? AVCaptureDeviceInput(device: device) else {
-                NSLog("CameraCapture: no camera available (device=%@)", device == nil ? "nil" : "found but input failed")
+            guard let device else {
+                NSLog("CameraCapture: no camera device available")
+                session.commitConfiguration()
+                return
+            }
+            let input: AVCaptureDeviceInput
+            do {
+                input = try AVCaptureDeviceInput(device: device)
+            } catch {
+                NSLog("CameraCapture: failed to create input: %@", error.localizedDescription)
                 session.commitConfiguration()
                 return
             }
@@ -73,9 +81,15 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             let newPosition: AVCaptureDevice.Position = toFront ? .front : .back
             guard newPosition != currentPosition else { return }
 
-            guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition),
-                  let newInput = try? AVCaptureDeviceInput(device: newDevice) else {
+            guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition) else {
                 NSLog("CameraCapture: no camera for position %d", newPosition.rawValue)
+                return
+            }
+            let newInput: AVCaptureDeviceInput
+            do {
+                newInput = try AVCaptureDeviceInput(device: newDevice)
+            } catch {
+                NSLog("CameraCapture: failed to create input for position %d: %@", newPosition.rawValue, error.localizedDescription)
                 return
             }
 
