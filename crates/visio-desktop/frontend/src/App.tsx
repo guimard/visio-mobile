@@ -792,6 +792,23 @@ function ToolsSidebar({ onClose }: { onClose: () => void }) {
   );
 }
 
+// -- Waiting Screen ---------------------------------------------------------
+
+function WaitingScreen({ onCancel, t }: { onCancel: () => void; t: (k: string) => string }) {
+  return (
+    <div className="waiting-screen">
+      <div className="waiting-content">
+        <div className="waiting-spinner" />
+        <h2>{t("lobby.waiting")}</h2>
+        <p>{t("lobby.waitingDesc")}</p>
+        <button className="btn btn-secondary" onClick={onCancel}>
+          {t("lobby.cancel")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // -- Call View --------------------------------------------------------------
 
 function CallView({
@@ -830,6 +847,8 @@ function CallView({
   activeSpeakers,
   onSelectAudioInput,
   onSelectVideoInput,
+  waitingParticipants,
+  setWaitingParticipants,
 }: {
   participants: Participant[];
   localParticipant: Participant | null;
@@ -866,6 +885,8 @@ function CallView({
   selectedVideoInput: string;
   onSelectAudioInput: (id: string) => void;
   onSelectVideoInput: (id: string) => void;
+  waitingParticipants: Array<{id: string, username: string}>;
+  setWaitingParticipants: React.Dispatch<React.SetStateAction<Array<{id: string, username: string}>>>;
 }) {
   const t = useT();
   const [focusedParticipant, setFocusedParticipant] = useState<string | null>(null);
@@ -1010,6 +1031,40 @@ function CallView({
               </button>
             </div>
             <div className="participants-list">
+              {waitingParticipants.length > 0 && (
+                <div className="lobby-section">
+                  <div className="lobby-header">
+                    <h4>{t("lobby.waitingParticipants")} ({waitingParticipants.length})</h4>
+                    <button className="btn btn-sm" onClick={async () => {
+                      for (const p of waitingParticipants) {
+                        await invoke("admit_participant", { participantId: p.id });
+                      }
+                      setWaitingParticipants([]);
+                    }}>
+                      {t("lobby.admitAll")}
+                    </button>
+                  </div>
+                  {waitingParticipants.map(p => (
+                    <div key={p.id} className="lobby-participant">
+                      <span>{p.username}</span>
+                      <div className="lobby-actions">
+                        <button className="btn btn-sm btn-primary" onClick={async () => {
+                          await invoke("admit_participant", { participantId: p.id });
+                          setWaitingParticipants(prev => prev.filter(x => x.id !== p.id));
+                        }}>
+                          {t("lobby.admit")}
+                        </button>
+                        <button className="btn btn-sm btn-danger" onClick={async () => {
+                          await invoke("deny_participant", { participantId: p.id });
+                          setWaitingParticipants(prev => prev.filter(x => x.id !== p.id));
+                        }}>
+                          {t("lobby.deny")}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {allParticipants.map((p) => {
                 const name = p.name || p.identity || t("unknown");
                 const isLocal = localParticipant && p.sid === localParticipant.sid;
@@ -1414,6 +1469,9 @@ export default function App() {
   const [showCamPicker, setShowCamPicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Lobby / waiting room
+  const [waitingParticipants, setWaitingParticipants] = useState<Array<{id: string, username: string}>>([]);
+
   // Deep link
   const [deepLinkUrl, setDeepLinkUrl] = useState<string | null>(null);
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
@@ -1654,6 +1712,44 @@ export default function App() {
     };
   }, [view]);
 
+  // ---- Lobby events -------------------------------------------------------
+  useEffect(() => {
+    let unlistenDenied: UnlistenFn | null = null;
+    let unlistenJoined: UnlistenFn | null = null;
+    let unlistenLeft: UnlistenFn | null = null;
+
+    listen("lobby-denied", () => {
+      setConnectionState("disconnected");
+      setView("home");
+      alert(t("lobby.denied"));
+    }).then((fn) => {
+      unlistenDenied = fn;
+    });
+
+    listen<{ id: string; username: string }>("lobby-participant-joined", (event) => {
+      const p = event.payload;
+      setWaitingParticipants((prev) => {
+        if (prev.some((x) => x.id === p.id)) return prev;
+        return [...prev, p];
+      });
+    }).then((fn) => {
+      unlistenJoined = fn;
+    });
+
+    listen<{ id: string }>("lobby-participant-left", (event) => {
+      const { id } = event.payload;
+      setWaitingParticipants((prev) => prev.filter((x) => x.id !== id));
+    }).then((fn) => {
+      unlistenLeft = fn;
+    });
+
+    return () => {
+      if (unlistenDenied) unlistenDenied();
+      if (unlistenJoined) unlistenJoined();
+      if (unlistenLeft) unlistenLeft();
+    };
+  }, [t]);
+
   // ---- Handlers -----------------------------------------------------------
   const handleJoin = (meetUrl: string) => {
     setCurrentMeetUrl(meetUrl);
@@ -1845,6 +1941,23 @@ export default function App() {
             selectedVideoInput={selectedVideoInput}
             onSelectAudioInput={setSelectedAudioInput}
             onSelectVideoInput={setSelectedVideoInput}
+            waitingParticipants={waitingParticipants}
+            setWaitingParticipants={setWaitingParticipants}
+          />
+        )}
+        {connectionState === "waiting_for_host" && (
+          <WaitingScreen
+            t={t}
+            onCancel={async () => {
+              try {
+                await invoke("cancel_lobby");
+              } catch (_) { /* ignore */ }
+              try {
+                await invoke("disconnect");
+              } catch (_) { /* ignore */ }
+              setConnectionState("disconnected");
+              setView("home");
+            }}
           />
         )}
       </main>
