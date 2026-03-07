@@ -29,14 +29,15 @@ class CameraCapture(private val context: Context) {
         private const val MAX_IMAGES = 2
     }
 
+    private val lock = Any()
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
-    private var sensorOrientation: Int = 0
-    private var isFrontCamera: Boolean = false
-    private var running = false
+    @Volatile private var sensorOrientation: Int = 0
+    @Volatile private var isFrontCamera: Boolean = false
+    @Volatile private var running = false
     private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
 
     @SuppressLint("MissingPermission") // Caller must check CAMERA permission first
@@ -63,7 +64,7 @@ class CameraCapture(private val context: Context) {
         Log.i(TAG, "Camera $cameraId: sensorOrientation=$sensorOrientation, front=$isFrontCamera")
 
         // ImageReader receives YUV_420_888 frames
-        imageReader =
+        val newReader =
             ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, MAX_IMAGES).apply {
                 setOnImageAvailableListener({ reader ->
                     val image =
@@ -108,20 +109,21 @@ class CameraCapture(private val context: Context) {
                     }
                 }, handler)
             }
+        synchronized(lock) { imageReader = newReader }
 
         cameraManager.openCamera(
             cameraId,
             object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     Log.i(TAG, "Camera opened: ${camera.id}")
-                    cameraDevice = camera
+                    synchronized(lock) { cameraDevice = camera }
                     createCaptureSession(camera)
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
                     Log.w(TAG, "Camera disconnected")
                     camera.close()
-                    cameraDevice = null
+                    synchronized(lock) { cameraDevice = null }
                 }
 
                 override fun onError(
@@ -130,7 +132,7 @@ class CameraCapture(private val context: Context) {
                 ) {
                     Log.e(TAG, "Camera error: $error")
                     camera.close()
-                    cameraDevice = null
+                    synchronized(lock) { cameraDevice = null }
                 }
             },
             handler,
@@ -141,14 +143,16 @@ class CameraCapture(private val context: Context) {
         if (!running) return
         running = false
 
-        captureSession?.close()
-        captureSession = null
+        synchronized(lock) {
+            captureSession?.close()
+            captureSession = null
 
-        cameraDevice?.close()
-        cameraDevice = null
+            cameraDevice?.close()
+            cameraDevice = null
 
-        imageReader?.close()
-        imageReader = null
+            imageReader?.close()
+            imageReader = null
+        }
 
         handlerThread?.quitSafely()
         handlerThread = null
@@ -173,12 +177,14 @@ class CameraCapture(private val context: Context) {
         }
 
         // Stop current session
-        captureSession?.close()
-        captureSession = null
-        cameraDevice?.close()
-        cameraDevice = null
-        imageReader?.close()
-        imageReader = null
+        synchronized(lock) {
+            captureSession?.close()
+            captureSession = null
+            cameraDevice?.close()
+            cameraDevice = null
+            imageReader?.close()
+            imageReader = null
+        }
 
         // Update orientation info
         val chars = cameraManager.getCameraCharacteristics(newId)
@@ -187,7 +193,7 @@ class CameraCapture(private val context: Context) {
         Log.i(TAG, "Switching to camera $newId: sensorOrientation=$sensorOrientation, front=$isFrontCamera")
 
         // Recreate ImageReader
-        imageReader =
+        val newReader =
             ImageReader.newInstance(WIDTH, HEIGHT, ImageFormat.YUV_420_888, MAX_IMAGES).apply {
                 setOnImageAvailableListener({ reader ->
                     val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
@@ -217,6 +223,7 @@ class CameraCapture(private val context: Context) {
                     }
                 }, handler)
             }
+        synchronized(lock) { imageReader = newReader }
 
         // Open new camera
         cameraManager.openCamera(
@@ -224,13 +231,13 @@ class CameraCapture(private val context: Context) {
             object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     Log.i(TAG, "Switched camera opened: ${camera.id}")
-                    cameraDevice = camera
+                    synchronized(lock) { cameraDevice = camera }
                     createCaptureSession(camera)
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
-                    cameraDevice = null
+                    synchronized(lock) { cameraDevice = null }
                 }
 
                 override fun onError(
@@ -239,7 +246,7 @@ class CameraCapture(private val context: Context) {
                 ) {
                     Log.e(TAG, "Camera switch error: $error")
                     camera.close()
-                    cameraDevice = null
+                    synchronized(lock) { cameraDevice = null }
                 }
             },
             handler,
@@ -251,7 +258,7 @@ class CameraCapture(private val context: Context) {
 
     @Suppress("DEPRECATION")
     private fun createCaptureSession(camera: CameraDevice) {
-        val reader = imageReader ?: return
+        val reader = synchronized(lock) { imageReader } ?: return
         val surface = reader.surface
 
         camera.createCaptureSession(
@@ -262,7 +269,7 @@ class CameraCapture(private val context: Context) {
                         session.close()
                         return
                     }
-                    captureSession = session
+                    synchronized(lock) { captureSession = session }
 
                     val request =
                         camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
