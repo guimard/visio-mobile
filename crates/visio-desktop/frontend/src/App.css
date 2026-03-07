@@ -1045,6 +1045,25 @@ main {
   background: var(--bg-tertiary);
 }
 
+.info-copy-btn-inline {
+  width: auto;
+}
+
+.info-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+.info-link-row .info-url {
+  flex: 1;
+  word-break: break-all;
+  font-size: 0.85rem;
+}
+.info-link-row .info-copy-btn {
+  flex-shrink: 0;
+}
+
 .info-transcribe-btn {
   display: flex;
   align-items: center;

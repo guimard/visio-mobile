@@ -20,6 +20,7 @@ import {
   RiFileTextLine,
   RiMailLine,
   RiGlobalLine,
+  RiSmartphoneLine,
   RiApps2Line,
   RiArrowRightSLine,
   RiPhoneFill,
@@ -506,18 +507,28 @@ function HomeView({
 
 function InfoSidebar({ meetUrl, onClose }: { meetUrl: string; onClose: () => void }) {
   const t = useT();
-  const [copied, setCopied] = useState(false);
+  const [copiedHttp, setCopiedHttp] = useState(false);
+  const [copiedDeep, setCopiedDeep] = useState(false);
 
-  const handleCopy = async () => {
+  // Normalize URL for display (strip scheme)
+  const displayUrl = meetUrl.replace(/^https?:\/\//, "");
+  const deepLink = `visio://${displayUrl}`;
+
+  const handleCopyHttp = async () => {
     try {
       await navigator.clipboard.writeText(meetUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedHttp(true);
+      setTimeout(() => setCopiedHttp(false), 2000);
     } catch { /* fallback: ignore */ }
   };
 
-  // Normalize URL for display
-  const displayUrl = meetUrl.replace(/^https?:\/\//, "");
+  const handleCopyDeep = async () => {
+    try {
+      await navigator.clipboard.writeText(deepLink);
+      setCopiedDeep(true);
+      setTimeout(() => setCopiedDeep(false), 2000);
+    } catch { /* fallback: ignore */ }
+  };
 
   return (
     <div className="info-sidebar">
@@ -527,12 +538,26 @@ function InfoSidebar({ meetUrl, onClose }: { meetUrl: string; onClose: () => voi
       </div>
       <div className="info-body">
         <div className="info-section">
-          <div className="info-section-title">{t("info.connection")}</div>
-          <div className="info-url">{displayUrl}</div>
-          <button className="info-copy-btn" onClick={handleCopy}>
-            {copied ? <RiCheckLine size={16} /> : <RiFileCopyLine size={16} />}
-            {copied ? t("info.copied") : t("info.copy")}
-          </button>
+          <div className="info-section-title">{t("settings.incall.roomLink")}</div>
+          <div className="info-link-row">
+            <RiGlobalLine size={18} />
+            <span className="info-url">{displayUrl}</span>
+            <button className="info-copy-btn info-copy-btn-inline" onClick={handleCopyHttp}>
+              {copiedHttp ? <RiCheckLine size={16} /> : <RiFileCopyLine size={16} />}
+              {copiedHttp ? t("settings.incall.copied") : t("info.copy")}
+            </button>
+          </div>
+        </div>
+        <div className="info-section">
+          <div className="info-section-title">{t("settings.incall.deepLink")}</div>
+          <div className="info-link-row">
+            <RiSmartphoneLine size={18} />
+            <span className="info-url">{deepLink}</span>
+            <button className="info-copy-btn info-copy-btn-inline" onClick={handleCopyDeep}>
+              {copiedDeep ? <RiCheckLine size={16} /> : <RiFileCopyLine size={16} />}
+              {copiedDeep ? t("settings.incall.copied") : t("info.copy")}
+            </button>
+          </div>
         </div>
       </div>
     </div>
