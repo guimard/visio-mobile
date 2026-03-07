@@ -17,11 +17,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -78,6 +82,8 @@ fun HomeScreen(
     var roomStatus by remember { mutableStateOf("idle") }
     val slugRegex = remember { Regex("^[a-z]{3}-[a-z]{4}-[a-z]{3}$") }
     var meetInstances by remember { mutableStateOf(listOf<String>()) }
+    var showServerPicker by remember { mutableStateOf(false) }
+    var customServer by remember { mutableStateOf("") }
 
     // Load meet instances from settings
     LaunchedEffect(Unit) {
@@ -208,18 +214,33 @@ fun HomeScreen(
         } else {
             Button(
                 onClick = {
-                    val meetInstance = meetInstances.firstOrNull() ?: return@Button
-                    VisioManager.authManager.launchOidcFlow(
-                        oidcLauncher,
-                        context,
-                        meetInstance,
-                    )
+                    if (meetInstances.size <= 1) {
+                        val meetInstance = meetInstances.firstOrNull() ?: return@Button
+                        VisioManager.authManager.launchOidcFlow(oidcLauncher, context, meetInstance)
+                    } else {
+                        customServer = ""
+                        showServerPicker = true
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(),
             ) {
                 Text(Strings.t("home.connect", lang))
             }
+        }
+
+        if (showServerPicker) {
+            ServerPickerDialog(
+                instances = meetInstances,
+                customServer = customServer,
+                onCustomServerChange = { customServer = it },
+                lang = lang,
+                onSelect = { instance ->
+                    showServerPicker = false
+                    VisioManager.authManager.launchOidcFlow(oidcLauncher, context, instance)
+                },
+                onDismiss = { showServerPicker = false },
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -339,4 +360,56 @@ fun HomeScreen(
             )
         }
     }
+}
+
+@Composable
+private fun ServerPickerDialog(
+    instances: List<String>,
+    customServer: String,
+    onCustomServerChange: (String) -> Unit,
+    lang: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.t("home.serverPicker.title", lang)) },
+        text = {
+            Column {
+                instances.forEach { instance ->
+                    Text(
+                        text = instance,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = VisioColors.Primary500,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(instance) }
+                            .padding(vertical = 12.dp),
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                OutlinedTextField(
+                    value = customServer,
+                    onValueChange = onCustomServerChange,
+                    label = { Text(Strings.t("home.serverPicker.custom", lang)) },
+                    placeholder = { Text("meet.example.com") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (customServer.isNotBlank()) onSelect(customServer.trim()) },
+                enabled = customServer.isNotBlank(),
+            ) {
+                Text(Strings.t("home.connect", lang))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(Strings.t("home.serverPicker.cancel", lang))
+            }
+        },
+    )
 }

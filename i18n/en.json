@@ -119,5 +119,8 @@
   "notification.text": "Call in progress",
   "home.connect": "Connect",
   "home.logout": "Logout",
-  "home.loggedAs": "Logged in as"
+  "home.loggedAs": "Logged in as",
+  "home.serverPicker.title": "Choose a server",
+  "home.serverPicker.custom": "Other server",
+  "home.serverPicker.cancel": "Cancel"
 }

@@ -119,5 +119,8 @@
   "notification.text": "Appel en cours",
   "home.connect": "Se connecter",
   "home.logout": "Déconnexion",
-  "home.loggedAs": "Connecté en tant que"
+  "home.loggedAs": "Connecté en tant que",
+  "home.serverPicker.title": "Choisir un serveur",
+  "home.serverPicker.custom": "Autre serveur",
+  "home.serverPicker.cancel": "Annuler"
 }

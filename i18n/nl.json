@@ -115,5 +115,8 @@
   "settings.incall.notifMessage": "Bericht ontvangen",
   "home.connect": "Inloggen",
   "home.logout": "Uitloggen",
-  "home.loggedAs": "Ingelogd als"
+  "home.loggedAs": "Ingelogd als",
+  "home.serverPicker.title": "Kies een server",
+  "home.serverPicker.custom": "Andere server",
+  "home.serverPicker.cancel": "Annuleren"
 }

@@ -115,5 +115,8 @@
   "settings.incall.notifMessage": "Mensaje recibido",
   "home.connect": "Conectarse",
   "home.logout": "Cerrar sesión",
-  "home.loggedAs": "Conectado como"
+  "home.loggedAs": "Conectado como",
+  "home.serverPicker.title": "Elegir un servidor",
+  "home.serverPicker.custom": "Otro servidor",
+  "home.serverPicker.cancel": "Cancelar"
 }
