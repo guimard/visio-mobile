@@ -265,7 +265,7 @@ function HomeView({
   onLaunchOidc,
   onLogout,
 }: {
-  onJoin: (meetUrl: string, username: string | null) => void;
+  onJoin: (meetUrl: string, username: string | null, roomId?: string, accessLevel?: string) => void;
   onOpenSettings: () => void;
   displayName: string;
   onDisplayNameChange: (name: string) => void;
@@ -514,13 +514,13 @@ function HomeView({
       {showCreateRoom && authenticatedMeetInstance && (
         <CreateRoomDialog
           meetInstance={authenticatedMeetInstance}
-          onCreated={async (createdUrl) => {
+          onCreated={async (createdUrl, roomId, accessLevel) => {
             setShowCreateRoom(false);
             const uname = displayName.trim() || null;
             try {
               await invoke("set_display_name", { name: uname });
               await invoke("connect", { meetUrl: createdUrl, username: uname });
-              onJoin(createdUrl, uname);
+              onJoin(createdUrl, uname, roomId, accessLevel);
             } catch (e) {
               setError(String(e));
             }
@@ -540,30 +540,65 @@ function CreateRoomDialog({
   onCancel,
 }: {
   meetInstance: string;
-  onCreated: (meetUrl: string) => void;
+  onCreated: (meetUrl: string, roomId?: string, accessLevel?: string) => void;
   onCancel: () => void;
 }) {
   const t = useT();
-  const [accessLevel, setAccessLevel] = useState<"public" | "trusted">("public");
+  const [accessLevel, setAccessLevel] = useState<"public" | "trusted" | "restricted">("public");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [createdUrl, setCreatedUrl] = useState("");
   const [copiedHttp, setCopiedHttp] = useState(false);
   const [copiedDeep, setCopiedDeep] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [invitedUsers, setInvitedUsers] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [createdRoomId, setCreatedRoomId] = useState("");
 
   const deepLink = createdUrl ? `visio://${createdUrl.replace(/^https?:\/\//, "")}` : "";
+
+  useEffect(() => {
+    if (searchQuery.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await invoke<any[]>("search_users", { query: searchQuery });
+        setSearchResults(
+          results.filter((u: any) => !invitedUsers.some((inv: any) => inv.id === u.id))
+        );
+      } catch {
+        setSearchResults([]);
+      }
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, invitedUsers]);
 
   const handleCreate = async () => {
     setCreating(true);
     setError("");
     const meetUrl = `https://${meetInstance}`;
     try {
-      const result = await invoke<{ slug: string }>("create_room", {
+      const result = await invoke<{ slug: string; id: string }>("create_room", {
         meetUrl,
         name: "",
         accessLevel,
       });
       setCreatedUrl(`${meetUrl}/${result.slug}`);
+      setCreatedRoomId(result.id);
+      if (accessLevel === "restricted") {
+        for (const user of invitedUsers) {
+          try {
+            await invoke("add_access", { userId: user.id, roomId: result.id });
+          } catch (e) {
+            console.warn("Failed to add access for", user.email, e);
+          }
+        }
+      }
     } catch (e) {
       setError(t("home.createRoom.error") + ": " + String(e));
     } finally {
@@ -626,8 +661,69 @@ function CreateRoomDialog({
                       <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>{t("home.createRoom.trustedDesc")}</div>
                     </div>
                   </label>
+                  <label
+                    className={`access-option ${accessLevel === "restricted" ? "selected" : ""}`}
+                    onClick={() => setAccessLevel("restricted")}
+                  >
+                    <input
+                      type="radio"
+                      name="accessLevel"
+                      value="restricted"
+                      checked={accessLevel === "restricted"}
+                      onChange={() => setAccessLevel("restricted")}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: "0.9rem" }}>{t("home.createRoom.restricted")}</div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>{t("home.createRoom.restrictedDesc")}</div>
+                    </div>
+                  </label>
                 </div>
               </div>
+              {accessLevel === "restricted" && (
+                <div className="form-field" style={{ marginTop: "8px" }}>
+                  <label>{t("restricted.invite")}</label>
+                  <input
+                    type="text"
+                    className="info-link-input"
+                    placeholder={t("restricted.searchUsers")}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchResults.length > 0 && (
+                    <div className="search-dropdown">
+                      {searchResults.map((user: any) => (
+                        <div
+                          key={user.id}
+                          className="search-result"
+                          onClick={() => {
+                            setInvitedUsers([...invitedUsers, user]);
+                            setSearchQuery("");
+                            setSearchResults([]);
+                          }}
+                        >
+                          <span className="search-name">{user.full_name || user.email}</span>
+                          <span className="search-email">{user.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {invitedUsers.length > 0 && (
+                    <div className="invited-chips">
+                      {invitedUsers.map((user: any) => (
+                        <span key={user.id} className="user-chip">
+                          {user.full_name || user.email}
+                          <button
+                            className="chip-remove"
+                            onClick={() => setInvitedUsers(invitedUsers.filter((u: any) => u.id !== user.id))}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {error && <div className="create-room-error">{error}</div>}
             </>
           ) : (
@@ -659,7 +755,7 @@ function CreateRoomDialog({
               {creating ? t("home.createRoom.creating") : t("home.createRoom.create")}
             </button>
           ) : (
-            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => onCreated(createdUrl)}>
+            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => onCreated(createdUrl, createdRoomId, accessLevel)}>
               {t("home.join")}
             </button>
           )}
@@ -671,14 +767,48 @@ function CreateRoomDialog({
 
 // -- Info Sidebar -----------------------------------------------------------
 
-function InfoSidebar({ meetUrl, onClose }: { meetUrl: string; onClose: () => void }) {
+function InfoSidebar({ meetUrl, onClose, roomId, accessLevel }: { meetUrl: string; onClose: () => void; roomId?: string; accessLevel?: string }) {
   const t = useT();
   const [copiedHttp, setCopiedHttp] = useState(false);
   const [copiedDeep, setCopiedDeep] = useState(false);
+  const [roomAccesses, setRoomAccesses] = useState<any[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberResults, setMemberResults] = useState<any[]>([]);
 
   // Normalize URL for display (strip scheme)
   const displayUrl = meetUrl.replace(/^https?:\/\//, "");
   const deepLink = `visio://${displayUrl}`;
+
+  // Fetch accesses on mount if roomId is provided
+  useEffect(() => {
+    if (!roomId) return;
+    const fetchAccesses = async () => {
+      try {
+        const results = await invoke<any[]>("list_accesses", { roomId });
+        setRoomAccesses(results);
+      } catch { /* ignore - not owner/admin */ }
+    };
+    fetchAccesses();
+  }, [roomId]);
+
+  // Member search effect
+  useEffect(() => {
+    if (memberSearch.length < 3) {
+      setMemberResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const results = await invoke<any[]>("search_users", { query: memberSearch });
+        setMemberResults(
+          results.filter((u: any) => !roomAccesses.some((a: any) => a.user.id === u.id))
+        );
+      } catch {
+        setMemberResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [memberSearch, roomAccesses]);
 
   const handleCopyHttp = async () => {
     try {
@@ -723,6 +853,61 @@ function InfoSidebar({ meetUrl, onClose }: { meetUrl: string; onClose: () => voi
           </div>
           <input className="info-link-input" readOnly value={deepLink} onClick={e => (e.target as HTMLInputElement).select()} />
         </div>
+        {roomId && accessLevel === "restricted" && (
+          <div className="members-section">
+            <h4 style={{ margin: "16px 0 8px" }}>{t("restricted.members")}</h4>
+            <input
+              type="text"
+              className="info-link-input"
+              placeholder={t("restricted.searchUsers")}
+              value={memberSearch}
+              onChange={(e) => setMemberSearch(e.target.value)}
+            />
+            {memberResults.length > 0 && (
+              <div className="search-dropdown">
+                {memberResults.map((user: any) => (
+                  <div
+                    key={user.id}
+                    className="search-result"
+                    onClick={async () => {
+                      try {
+                        await invoke("add_access", { userId: user.id, roomId });
+                        const updated = await invoke<any[]>("list_accesses", { roomId });
+                        setRoomAccesses(updated);
+                      } catch { /* ignore */ }
+                      setMemberSearch("");
+                      setMemberResults([]);
+                    }}
+                  >
+                    <span className="search-name">{user.full_name || user.email}</span>
+                    <span className="search-email">{user.email}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {roomAccesses.map((access: any) => (
+              <div key={access.id} className="member-row">
+                <div className="member-info">
+                  <span>{access.user.full_name || access.user.email}</span>
+                  <span className="member-role">{t(`restricted.${access.role}`)}</span>
+                </div>
+                {access.role === "member" && (
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={async () => {
+                      try {
+                        await invoke("remove_access", { accessId: access.id });
+                        setRoomAccesses(prev => prev.filter((a: any) => a.id !== access.id));
+                      } catch { /* ignore */ }
+                    }}
+                  >
+                    {t("restricted.remove")}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -849,6 +1034,8 @@ function CallView({
   onSelectVideoInput,
   waitingParticipants,
   setWaitingParticipants,
+  roomId,
+  accessLevel,
 }: {
   participants: Participant[];
   localParticipant: Participant | null;
@@ -887,6 +1074,8 @@ function CallView({
   onSelectVideoInput: (id: string) => void;
   waitingParticipants: Array<{id: string, username: string}>;
   setWaitingParticipants: React.Dispatch<React.SetStateAction<Array<{id: string, username: string}>>>;
+  roomId?: string;
+  accessLevel?: string;
 }) {
   const t = useT();
   const [focusedParticipant, setFocusedParticipant] = useState<string | null>(null);
@@ -1094,7 +1283,7 @@ function CallView({
 
         {/* Info sidebar */}
         {showInfo && !showTranscription && (
-          <InfoSidebar meetUrl={meetUrl} onClose={onToggleInfo} />
+          <InfoSidebar meetUrl={meetUrl} onClose={onToggleInfo} roomId={roomId} accessLevel={accessLevel} />
         )}
 
         {/* Tools sidebar */}
@@ -1477,6 +1666,8 @@ export default function App() {
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
   // Meeting URL (set on join, used in info panel)
   const [currentMeetUrl, setCurrentMeetUrl] = useState("");
+  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
+  const [currentAccessLevel, setCurrentAccessLevel] = useState<string>("");
   // Display name (shared between Home and Settings)
   const [displayName, setDisplayName] = useState("");
   // i18n
@@ -1751,8 +1942,10 @@ export default function App() {
   }, [t]);
 
   // ---- Handlers -----------------------------------------------------------
-  const handleJoin = (meetUrl: string) => {
+  const handleJoin = (meetUrl: string, _username?: string | null, roomId?: string, accessLevel?: string) => {
     setCurrentMeetUrl(meetUrl);
+    if (roomId) setCurrentRoomId(roomId);
+    if (accessLevel) setCurrentAccessLevel(accessLevel);
     setView("call");
   };
 
@@ -1943,6 +2136,8 @@ export default function App() {
             onSelectVideoInput={setSelectedVideoInput}
             waitingParticipants={waitingParticipants}
             setWaitingParticipants={setWaitingParticipants}
+            roomId={currentRoomId || undefined}
+            accessLevel={currentAccessLevel || undefined}
           />
         )}
         {connectionState === "waiting_for_host" && (
