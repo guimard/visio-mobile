@@ -217,6 +217,7 @@ struct CallView: View {
                         .background(manager.isMicEnabled ? VisioColors.primaryDark100 : VisioColors.error200)
                         .clipShape(UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12, bottomTrailingRadius: 4, topTrailingRadius: 4))
                 }
+                .accessibilityLabel(Strings.t(manager.isMicEnabled ? "control.mute" : "control.unmute", lang: manager.currentLang))
 
                 // Audio route chevron
                 Button {
@@ -229,6 +230,7 @@ struct CallView: View {
                         .background(VisioColors.primaryDark100)
                         .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 4, bottomTrailingRadius: 12, topTrailingRadius: 12))
                 }
+                .accessibilityLabel(Strings.t("control.audioDevices", lang: manager.currentLang))
             }
 
             // Camera toggle
@@ -242,6 +244,7 @@ struct CallView: View {
                     .background(manager.isCameraEnabled ? VisioColors.primaryDark100 : VisioColors.error200)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .accessibilityLabel(Strings.t(manager.isCameraEnabled ? "control.camOff" : "control.camOn", lang: manager.currentLang))
 
             // Hand raise
             Button {
@@ -254,6 +257,7 @@ struct CallView: View {
                     .background(manager.isHandRaised ? VisioColors.handRaise : VisioColors.primaryDark100)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .accessibilityLabel(Strings.t(manager.isHandRaised ? "control.lowerHand" : "control.raiseHand", lang: manager.currentLang))
 
             // Participants with count badge
             Button {
@@ -277,6 +281,7 @@ struct CallView: View {
                         .offset(x: 4, y: -4)
                 }
             }
+            .accessibilityLabel(Strings.t("participants.title", lang: manager.currentLang))
 
             // Chat with unread badge
             Button {
@@ -302,6 +307,7 @@ struct CallView: View {
                     }
                 }
             }
+            .accessibilityLabel(Strings.t("chat", lang: manager.currentLang))
 
             // In-call settings
             Button {
@@ -315,6 +321,7 @@ struct CallView: View {
                     .background(VisioColors.primaryDark100)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .accessibilityLabel(Strings.t("settings", lang: manager.currentLang))
 
             // Hangup
             Button {
@@ -329,6 +336,7 @@ struct CallView: View {
                     .background(VisioColors.error500)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .accessibilityLabel(Strings.t("control.leave", lang: manager.currentLang))
         }
         .padding(12)
         .background(VisioColors.surface(dark: isDark))

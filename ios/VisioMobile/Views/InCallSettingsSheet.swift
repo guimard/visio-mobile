@@ -15,9 +15,9 @@ struct InCallSettingsSheet: View {
             HStack(spacing: 0) {
                 // Sidebar icons
                 VStack(spacing: 4) {
-                    tabButton(icon: "mic.fill", tab: 0)
-                    tabButton(icon: "video.fill", tab: 1)
-                    tabButton(icon: "bell.fill", tab: 2)
+                    tabButton(icon: "mic.fill", tab: 0, label: Strings.t("settings.incall.micro", lang: lang))
+                    tabButton(icon: "video.fill", tab: 1, label: Strings.t("settings.incall.camera", lang: lang))
+                    tabButton(icon: "bell.fill", tab: 2, label: Strings.t("settings.incall.notifications", lang: lang))
                     Spacer()
                 }
                 .padding(.vertical, 12)
@@ -54,7 +54,7 @@ struct InCallSettingsSheet: View {
 
     // MARK: - Tab Button
 
-    private func tabButton(icon: String, tab: Int) -> some View {
+    private func tabButton(icon: String, tab: Int, label: String) -> some View {
         Button {
             selectedTab = tab
         } label: {
@@ -65,6 +65,7 @@ struct InCallSettingsSheet: View {
                 .background(selectedTab == tab ? VisioColors.primary500.opacity(0.15) : .clear)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
         }
+        .accessibilityLabel(label)
     }
 
     // MARK: - Micro Tab
