@@ -8,6 +8,7 @@ interface ConnectionState {
     Connecting();
     Connected();
     Reconnecting(u32 attempt);
+    WaitingForHost();
 };
 
 enum ConnectionQuality {
@@ -80,6 +81,9 @@ interface VisioEvent {
     ChatMessageReceived(ChatMessage message);
     HandRaisedChanged(string participant_sid, boolean raised, u32 position);
     UnreadCountChanged(u32 count);
+    LobbyParticipantJoined(string id, string username);
+    LobbyParticipantLeft(string id);
+    LobbyDenied();
     ConnectionLost();
 };
 
@@ -109,6 +113,11 @@ interface RoomValidationResult {
 interface SessionState {
     Anonymous();
     Authenticated(string display_name, string email, string meet_instance);
+};
+
+dictionary WaitingParticipant {
+    string id;
+    string username;
 };
 
 dictionary CreateRoomResult {
@@ -202,6 +211,17 @@ interface VisioClient {
 
     [Throws=VisioError]
     CreateRoomResult create_room(string meet_url, string name, string access_level);
+
+    [Throws=VisioError]
+    sequence<WaitingParticipant> list_waiting_participants();
+
+    [Throws=VisioError]
+    void admit_participant(string participant_id);
+
+    [Throws=VisioError]
+    void deny_participant(string participant_id);
+
+    void cancel_lobby();
 
     void start_video_renderer(string track_sid);
 

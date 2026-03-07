@@ -94,6 +94,7 @@ pub enum ConnectionState {
     Connecting,
     Connected,
     Reconnecting { attempt: u32 },
+    WaitingForHost,
 }
 
 impl From<CoreConnectionState> for ConnectionState {
@@ -103,6 +104,7 @@ impl From<CoreConnectionState> for ConnectionState {
             CoreConnectionState::Connecting => Self::Connecting,
             CoreConnectionState::Connected => Self::Connected,
             CoreConnectionState::Reconnecting { attempt } => Self::Reconnecting { attempt },
+            CoreConnectionState::WaitingForHost => Self::WaitingForHost,
         }
     }
 }
@@ -282,6 +284,21 @@ pub struct CreateRoomResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct WaitingParticipant {
+    pub id: String,
+    pub username: String,
+}
+
+impl From<visio_core::WaitingParticipant> for WaitingParticipant {
+    fn from(w: visio_core::WaitingParticipant) -> Self {
+        Self {
+            id: w.id,
+            username: w.username,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum VisioEvent {
     ConnectionStateChanged { state: ConnectionState },
     ParticipantJoined { info: ParticipantInfo },
@@ -295,6 +312,9 @@ pub enum VisioEvent {
     ChatMessageReceived { message: ChatMessage },
     HandRaisedChanged { participant_sid: String, raised: bool, position: u32 },
     UnreadCountChanged { count: u32 },
+    LobbyParticipantJoined { id: String, username: String },
+    LobbyParticipantLeft { id: String },
+    LobbyDenied,
     ConnectionLost,
 }
 
@@ -337,6 +357,13 @@ impl From<CoreVisioEvent> for VisioEvent {
             CoreVisioEvent::UnreadCountChanged(count) => {
                 Self::UnreadCountChanged { count }
             }
+            CoreVisioEvent::LobbyParticipantJoined { id, username } => {
+                Self::LobbyParticipantJoined { id, username }
+            }
+            CoreVisioEvent::LobbyParticipantLeft { id } => {
+                Self::LobbyParticipantLeft { id }
+            }
+            CoreVisioEvent::LobbyDenied => Self::LobbyDenied,
             CoreVisioEvent::ConnectionLost => Self::ConnectionLost,
         }
     }
@@ -797,6 +824,29 @@ impl VisioClient {
             livekit_url,
             livekit_token,
         })
+    }
+
+    pub fn list_waiting_participants(&self) -> Result<Vec<WaitingParticipant>, VisioError> {
+        self.rt
+            .block_on(self.room_manager.list_waiting_participants())
+            .map(|v| v.into_iter().map(Into::into).collect())
+            .map_err(Into::into)
+    }
+
+    pub fn admit_participant(&self, participant_id: String) -> Result<(), VisioError> {
+        self.rt
+            .block_on(self.room_manager.handle_lobby_entry(&participant_id, true))
+            .map_err(Into::into)
+    }
+
+    pub fn deny_participant(&self, participant_id: String) -> Result<(), VisioError> {
+        self.rt
+            .block_on(self.room_manager.handle_lobby_entry(&participant_id, false))
+            .map_err(Into::into)
+    }
+
+    pub fn cancel_lobby(&self) {
+        self.rt.block_on(self.room_manager.cancel_lobby());
     }
 
     pub fn start_video_renderer(&self, track_sid: String) {
