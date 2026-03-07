@@ -38,8 +38,31 @@ struct CallView: View {
                         .background(VisioColors.error500)
                 }
 
-                // Main content area: video grid or waiting
-                if manager.participants.isEmpty {
+                // Main content area: video grid, waiting for host, or waiting for participants
+                if case .waitingForHost = manager.connectionState {
+                    Spacer()
+                    VStack(spacing: 24) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(isDark ? .white : VisioColors.primary500)
+                        Text(Strings.t("lobby.waiting", lang: lang))
+                            .font(.title2)
+                            .foregroundStyle(VisioColors.onBackground(dark: isDark))
+                        Text(Strings.t("lobby.waitingDesc", lang: lang))
+                            .foregroundStyle(VisioColors.secondaryText(dark: isDark))
+                        Button(action: {
+                            manager.cancelLobby()
+                            manager.disconnect()
+                            CallKitManager.shared.reportCallEnded()
+                            dismiss()
+                        }) {
+                            Text(Strings.t("lobby.cancel", lang: lang))
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding()
+                    Spacer()
+                } else if manager.participants.isEmpty {
                     Spacer()
                     VStack(spacing: 12) {
                         ProgressView()
@@ -57,8 +80,12 @@ struct CallView: View {
                     gridLayout
                 }
 
-                // Control bar
-                controlBar
+                // Control bar (hidden when waiting for host)
+                if case .waitingForHost = manager.connectionState {
+                    EmptyView()
+                } else {
+                    controlBar
+                }
             }
         }
         .navigationTitle(Strings.t("call.title", lang: lang))
@@ -108,6 +135,14 @@ struct CallView: View {
                 PiPManager.shared.startIfNeeded()
             } else if phase == .active {
                 PiPManager.shared.stop()
+            }
+        }
+        .onChange(of: manager.lobbyDenied) { denied in
+            if denied {
+                manager.lobbyDenied = false
+                manager.disconnect()
+                CallKitManager.shared.reportCallEnded()
+                dismiss()
             }
         }
     }
@@ -185,6 +220,8 @@ struct CallView: View {
             bannerView(text: "\(Strings.t("status.reconnecting", lang: lang)) (\(attempt))...", color: .orange)
         case .disconnected:
             bannerView(text: Strings.t("status.disconnected", lang: lang), color: VisioColors.greyscale400)
+        case .waitingForHost:
+            EmptyView()
         case .connected:
             EmptyView()
         }

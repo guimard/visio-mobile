@@ -11,6 +11,32 @@ struct ParticipantListSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                // Waiting room section (host only)
+                if !manager.waitingParticipants.isEmpty {
+                    Section(header: Text("\(Strings.t("lobby.waitingParticipants", lang: lang)) (\(manager.waitingParticipants.count))")) {
+                        ForEach(manager.waitingParticipants, id: \.id) { participant in
+                            HStack {
+                                Text(participant.username)
+                                    .foregroundStyle(VisioColors.onSurface(dark: isDark))
+                                Spacer()
+                                Button(Strings.t("lobby.admit", lang: lang)) {
+                                    manager.admitParticipant(participant.id)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+
+                                Button(Strings.t("lobby.deny", lang: lang)) {
+                                    manager.denyParticipant(participant.id)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .tint(.red)
+                            }
+                            .listRowBackground(VisioColors.surface(dark: isDark))
+                        }
+                    }
+                }
+
                 // Local participant (always first)
                 localParticipantRow
 

@@ -509,13 +509,21 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     
     func addListener(listener: VisioEventListener) 
     
+    func admitParticipant(participantId: String) throws 
+    
     func authenticate(meetUrl: String, cookie: String) throws 
+    
+    func cancelLobby() 
     
     func chatMessages()  -> [ChatMessage]
     
     func connect(meetUrl: String, username: String?) throws 
     
     func connectionState()  -> ConnectionState
+    
+    func createRoom(meetUrl: String, name: String, accessLevel: String) throws  -> CreateRoomResult
+    
+    func denyParticipant(participantId: String) throws 
     
     func disconnect() 
     
@@ -530,6 +538,8 @@ public protocol VisioClientProtocol: AnyObject, Sendable {
     func isHandRaised()  -> Bool
     
     func isMicrophoneEnabled()  -> Bool
+    
+    func listWaitingParticipants() throws  -> [WaitingParticipant]
     
     func logout(meetUrl: String) throws 
     
@@ -652,10 +662,23 @@ open func addListener(listener: VisioEventListener)  {try! rustCall() {
 }
 }
     
+open func admitParticipant(participantId: String)throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_admit_participant(self.uniffiClonePointer(),
+        FfiConverterString.lower(participantId),$0
+    )
+}
+}
+    
 open func authenticate(meetUrl: String, cookie: String)throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
     uniffi_visio_ffi_fn_method_visioclient_authenticate(self.uniffiClonePointer(),
         FfiConverterString.lower(meetUrl),
         FfiConverterString.lower(cookie),$0
+    )
+}
+}
+    
+open func cancelLobby()  {try! rustCall() {
+    uniffi_visio_ffi_fn_method_visioclient_cancel_lobby(self.uniffiClonePointer(),$0
     )
 }
 }
@@ -680,6 +703,23 @@ open func connectionState() -> ConnectionState  {
     uniffi_visio_ffi_fn_method_visioclient_connection_state(self.uniffiClonePointer(),$0
     )
 })
+}
+    
+open func createRoom(meetUrl: String, name: String, accessLevel: String)throws  -> CreateRoomResult  {
+    return try  FfiConverterTypeCreateRoomResult_lift(try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_create_room(self.uniffiClonePointer(),
+        FfiConverterString.lower(meetUrl),
+        FfiConverterString.lower(name),
+        FfiConverterString.lower(accessLevel),$0
+    )
+})
+}
+    
+open func denyParticipant(participantId: String)throws   {try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_deny_participant(self.uniffiClonePointer(),
+        FfiConverterString.lower(participantId),$0
+    )
+}
 }
     
 open func disconnect()  {try! rustCall() {
@@ -726,6 +766,13 @@ open func isHandRaised() -> Bool  {
 open func isMicrophoneEnabled() -> Bool  {
     return try!  FfiConverterBool.lift(try! rustCall() {
     uniffi_visio_ffi_fn_method_visioclient_is_microphone_enabled(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func listWaitingParticipants()throws  -> [WaitingParticipant]  {
+    return try  FfiConverterSequenceTypeWaitingParticipant.lift(try rustCallWithError(FfiConverterTypeVisioError_lift) {
+    uniffi_visio_ffi_fn_method_visioclient_list_waiting_participants(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -1039,6 +1086,100 @@ public func FfiConverterTypeChatMessage_lift(_ buf: RustBuffer) throws -> ChatMe
 #endif
 public func FfiConverterTypeChatMessage_lower(_ value: ChatMessage) -> RustBuffer {
     return FfiConverterTypeChatMessage.lower(value)
+}
+
+
+public struct CreateRoomResult {
+    public var slug: String
+    public var name: String
+    public var accessLevel: String
+    public var livekitUrl: String
+    public var livekitToken: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(slug: String, name: String, accessLevel: String, livekitUrl: String, livekitToken: String) {
+        self.slug = slug
+        self.name = name
+        self.accessLevel = accessLevel
+        self.livekitUrl = livekitUrl
+        self.livekitToken = livekitToken
+    }
+}
+
+#if compiler(>=6)
+extension CreateRoomResult: Sendable {}
+#endif
+
+
+extension CreateRoomResult: Equatable, Hashable {
+    public static func ==(lhs: CreateRoomResult, rhs: CreateRoomResult) -> Bool {
+        if lhs.slug != rhs.slug {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.accessLevel != rhs.accessLevel {
+            return false
+        }
+        if lhs.livekitUrl != rhs.livekitUrl {
+            return false
+        }
+        if lhs.livekitToken != rhs.livekitToken {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(slug)
+        hasher.combine(name)
+        hasher.combine(accessLevel)
+        hasher.combine(livekitUrl)
+        hasher.combine(livekitToken)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCreateRoomResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CreateRoomResult {
+        return
+            try CreateRoomResult(
+                slug: FfiConverterString.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                accessLevel: FfiConverterString.read(from: &buf), 
+                livekitUrl: FfiConverterString.read(from: &buf), 
+                livekitToken: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CreateRoomResult, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.slug, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterString.write(value.accessLevel, into: &buf)
+        FfiConverterString.write(value.livekitUrl, into: &buf)
+        FfiConverterString.write(value.livekitToken, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCreateRoomResult_lift(_ buf: RustBuffer) throws -> CreateRoomResult {
+    return try FfiConverterTypeCreateRoomResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCreateRoomResult_lower(_ value: CreateRoomResult) -> RustBuffer {
+    return FfiConverterTypeCreateRoomResult.lower(value)
 }
 
 
@@ -1363,6 +1504,76 @@ public func FfiConverterTypeTrackInfo_lower(_ value: TrackInfo) -> RustBuffer {
     return FfiConverterTypeTrackInfo.lower(value)
 }
 
+
+public struct WaitingParticipant {
+    public var id: String
+    public var username: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, username: String) {
+        self.id = id
+        self.username = username
+    }
+}
+
+#if compiler(>=6)
+extension WaitingParticipant: Sendable {}
+#endif
+
+
+extension WaitingParticipant: Equatable, Hashable {
+    public static func ==(lhs: WaitingParticipant, rhs: WaitingParticipant) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.username != rhs.username {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(username)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeWaitingParticipant: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WaitingParticipant {
+        return
+            try WaitingParticipant(
+                id: FfiConverterString.read(from: &buf), 
+                username: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: WaitingParticipant, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.username, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeWaitingParticipant_lift(_ buf: RustBuffer) throws -> WaitingParticipant {
+    return try FfiConverterTypeWaitingParticipant.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeWaitingParticipant_lower(_ value: WaitingParticipant) -> RustBuffer {
+    return FfiConverterTypeWaitingParticipant.lower(value)
+}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
@@ -1457,6 +1668,7 @@ public enum ConnectionState {
     case connected
     case reconnecting(attempt: UInt32
     )
+    case waitingForHost
 }
 
 
@@ -1483,6 +1695,8 @@ public struct FfiConverterTypeConnectionState: FfiConverterRustBuffer {
         case 4: return .reconnecting(attempt: try FfiConverterUInt32.read(from: &buf)
         )
         
+        case 5: return .waitingForHost
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -1507,6 +1721,10 @@ public struct FfiConverterTypeConnectionState: FfiConverterRustBuffer {
             writeInt(&buf, Int32(4))
             FfiConverterUInt32.write(attempt, into: &buf)
             
+        
+        case .waitingForHost:
+            writeInt(&buf, Int32(5))
+        
         }
     }
 }
@@ -1634,7 +1852,7 @@ extension RoomValidationResult: Equatable, Hashable {}
 public enum SessionState {
     
     case anonymous
-    case authenticated(displayName: String, email: String
+    case authenticated(displayName: String, email: String, meetInstance: String
     )
 }
 
@@ -1655,7 +1873,7 @@ public struct FfiConverterTypeSessionState: FfiConverterRustBuffer {
         
         case 1: return .anonymous
         
-        case 2: return .authenticated(displayName: try FfiConverterString.read(from: &buf), email: try FfiConverterString.read(from: &buf)
+        case 2: return .authenticated(displayName: try FfiConverterString.read(from: &buf), email: try FfiConverterString.read(from: &buf), meetInstance: try FfiConverterString.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -1670,10 +1888,11 @@ public struct FfiConverterTypeSessionState: FfiConverterRustBuffer {
             writeInt(&buf, Int32(1))
         
         
-        case let .authenticated(displayName,email):
+        case let .authenticated(displayName,email,meetInstance):
             writeInt(&buf, Int32(2))
             FfiConverterString.write(displayName, into: &buf)
             FfiConverterString.write(email, into: &buf)
+            FfiConverterString.write(meetInstance, into: &buf)
             
         }
     }
@@ -2011,6 +2230,11 @@ public enum VisioEvent {
     )
     case unreadCountChanged(count: UInt32
     )
+    case lobbyParticipantJoined(id: String, username: String
+    )
+    case lobbyParticipantLeft(id: String
+    )
+    case lobbyDenied
     case connectionLost
 }
 
@@ -2065,7 +2289,15 @@ public struct FfiConverterTypeVisioEvent: FfiConverterRustBuffer {
         case 12: return .unreadCountChanged(count: try FfiConverterUInt32.read(from: &buf)
         )
         
-        case 13: return .connectionLost
+        case 13: return .lobbyParticipantJoined(id: try FfiConverterString.read(from: &buf), username: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 14: return .lobbyParticipantLeft(id: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 15: return .lobbyDenied
+        
+        case 16: return .connectionLost
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -2140,8 +2372,23 @@ public struct FfiConverterTypeVisioEvent: FfiConverterRustBuffer {
             FfiConverterUInt32.write(count, into: &buf)
             
         
-        case .connectionLost:
+        case let .lobbyParticipantJoined(id,username):
             writeInt(&buf, Int32(13))
+            FfiConverterString.write(id, into: &buf)
+            FfiConverterString.write(username, into: &buf)
+            
+        
+        case let .lobbyParticipantLeft(id):
+            writeInt(&buf, Int32(14))
+            FfiConverterString.write(id, into: &buf)
+            
+        
+        case .lobbyDenied:
+            writeInt(&buf, Int32(15))
+        
+        
+        case .connectionLost:
+            writeInt(&buf, Int32(16))
         
         }
     }
@@ -2384,6 +2631,31 @@ fileprivate struct FfiConverterSequenceTypeParticipantInfo: FfiConverterRustBuff
         return seq
     }
 }
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeWaitingParticipant: FfiConverterRustBuffer {
+    typealias SwiftType = [WaitingParticipant]
+
+    public static func write(_ value: [WaitingParticipant], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeWaitingParticipant.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [WaitingParticipant] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [WaitingParticipant]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeWaitingParticipant.read(from: &buf))
+        }
+        return seq
+    }
+}
 public func initLogging()  {try! rustCall() {
     uniffi_visio_ffi_fn_func_init_logging($0
     )
@@ -2414,7 +2686,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_visio_ffi_checksum_method_visioclient_add_listener() != 29296) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_visio_ffi_checksum_method_visioclient_admit_participant() != 6663) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_visio_ffi_checksum_method_visioclient_authenticate() != 9943) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_cancel_lobby() != 33806) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_chat_messages() != 48857) {
@@ -2424,6 +2702,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_connection_state() != 20987) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_create_room() != 121) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_deny_participant() != 2857) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_disconnect() != 52651) {
@@ -2445,6 +2729,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_is_microphone_enabled() != 33466) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_visio_ffi_checksum_method_visioclient_list_waiting_participants() != 28692) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_visio_ffi_checksum_method_visioclient_logout() != 27303) {

@@ -291,9 +291,19 @@ RustBuffer uniffi_visio_ffi_fn_method_visioclient_active_speakers(void*_Nonnull 
 void uniffi_visio_ffi_fn_method_visioclient_add_listener(void*_Nonnull ptr, uint64_t listener, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_ADMIT_PARTICIPANT
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_ADMIT_PARTICIPANT
+void uniffi_visio_ffi_fn_method_visioclient_admit_participant(void*_Nonnull ptr, RustBuffer participant_id, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_AUTHENTICATE
 #define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_AUTHENTICATE
 void uniffi_visio_ffi_fn_method_visioclient_authenticate(void*_Nonnull ptr, RustBuffer meet_url, RustBuffer cookie, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CANCEL_LOBBY
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CANCEL_LOBBY
+void uniffi_visio_ffi_fn_method_visioclient_cancel_lobby(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CHAT_MESSAGES
@@ -309,6 +319,16 @@ void uniffi_visio_ffi_fn_method_visioclient_connect(void*_Nonnull ptr, RustBuffe
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CONNECTION_STATE
 #define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CONNECTION_STATE
 RustBuffer uniffi_visio_ffi_fn_method_visioclient_connection_state(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CREATE_ROOM
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_CREATE_ROOM
+RustBuffer uniffi_visio_ffi_fn_method_visioclient_create_room(void*_Nonnull ptr, RustBuffer meet_url, RustBuffer name, RustBuffer access_level, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_DENY_PARTICIPANT
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_DENY_PARTICIPANT
+void uniffi_visio_ffi_fn_method_visioclient_deny_participant(void*_Nonnull ptr, RustBuffer participant_id, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_DISCONNECT
@@ -344,6 +364,11 @@ int8_t uniffi_visio_ffi_fn_method_visioclient_is_hand_raised(void*_Nonnull ptr, 
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_IS_MICROPHONE_ENABLED
 #define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_IS_MICROPHONE_ENABLED
 int8_t uniffi_visio_ffi_fn_method_visioclient_is_microphone_enabled(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_LIST_WAITING_PARTICIPANTS
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_LIST_WAITING_PARTICIPANTS
+RustBuffer uniffi_visio_ffi_fn_method_visioclient_list_waiting_participants(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_FN_METHOD_VISIOCLIENT_LOGOUT
@@ -770,9 +795,21 @@ uint16_t uniffi_visio_ffi_checksum_method_visioclient_add_listener(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_ADMIT_PARTICIPANT
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_ADMIT_PARTICIPANT
+uint16_t uniffi_visio_ffi_checksum_method_visioclient_admit_participant(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_AUTHENTICATE
 #define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_AUTHENTICATE
 uint16_t uniffi_visio_ffi_checksum_method_visioclient_authenticate(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_CANCEL_LOBBY
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_CANCEL_LOBBY
+uint16_t uniffi_visio_ffi_checksum_method_visioclient_cancel_lobby(void
     
 );
 #endif
@@ -791,6 +828,18 @@ uint16_t uniffi_visio_ffi_checksum_method_visioclient_connect(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_CONNECTION_STATE
 #define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_CONNECTION_STATE
 uint16_t uniffi_visio_ffi_checksum_method_visioclient_connection_state(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_CREATE_ROOM
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_CREATE_ROOM
+uint16_t uniffi_visio_ffi_checksum_method_visioclient_create_room(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_DENY_PARTICIPANT
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_DENY_PARTICIPANT
+uint16_t uniffi_visio_ffi_checksum_method_visioclient_deny_participant(void
     
 );
 #endif
@@ -833,6 +882,12 @@ uint16_t uniffi_visio_ffi_checksum_method_visioclient_is_hand_raised(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_IS_MICROPHONE_ENABLED
 #define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_IS_MICROPHONE_ENABLED
 uint16_t uniffi_visio_ffi_checksum_method_visioclient_is_microphone_enabled(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_LIST_WAITING_PARTICIPANTS
+#define UNIFFI_FFIDEF_UNIFFI_VISIO_FFI_CHECKSUM_METHOD_VISIOCLIENT_LIST_WAITING_PARTICIPANTS
+uint16_t uniffi_visio_ffi_checksum_method_visioclient_list_waiting_participants(void
     
 );
 #endif

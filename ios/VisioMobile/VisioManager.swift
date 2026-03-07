@@ -29,6 +29,8 @@ class VisioManager: ObservableObject {
     @Published var displayName: String = ""
     @Published var pendingDeepLink: String? = nil
     @Published var isFrontCamera: Bool = true
+    @Published var waitingParticipants: [WaitingParticipant] = []
+    @Published var lobbyDenied: Bool = false
     @Published var isAuthenticated: Bool = false
     @Published var authenticatedDisplayName: String = ""
     @Published var authenticatedEmail: String = ""
@@ -151,6 +153,8 @@ class VisioManager: ObservableObject {
                 self.errorMessage = nil
                 self.videoTrackSids = []
                 self.isChatOpen = false
+                self.waitingParticipants = []
+                self.lobbyDenied = false
             }
         }
     }
@@ -242,6 +246,42 @@ class VisioManager: ObservableObject {
                     self.errorMessage = "Send failed: \(error.localizedDescription)"
                 }
             }
+        }
+    }
+
+    // MARK: - Lobby
+
+    func admitParticipant(_ id: String) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.client.admitParticipant(participantId: id)
+                DispatchQueue.main.async {
+                    self.waitingParticipants.removeAll { $0.id == id }
+                }
+            } catch {
+                NSLog("VisioManager: admit failed: \(error)")
+            }
+        }
+    }
+
+    func denyParticipant(_ id: String) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.client.denyParticipant(participantId: id)
+                DispatchQueue.main.async {
+                    self.waitingParticipants.removeAll { $0.id == id }
+                }
+            } catch {
+                NSLog("VisioManager: deny failed: \(error)")
+            }
+        }
+    }
+
+    func cancelLobby() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.client.cancelLobby()
         }
     }
 
@@ -502,6 +542,17 @@ extension VisioManager: VisioEventListener {
 
             case .unreadCountChanged(let count):
                 self.unreadCount = Int(count)
+
+            case .lobbyParticipantJoined(let id, let username):
+                if !self.waitingParticipants.contains(where: { $0.id == id }) {
+                    self.waitingParticipants.append(WaitingParticipant(id: id, username: username))
+                }
+
+            case .lobbyParticipantLeft(let id):
+                self.waitingParticipants.removeAll { $0.id == id }
+
+            case .lobbyDenied:
+                self.lobbyDenied = true
 
             case .connectionLost:
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
