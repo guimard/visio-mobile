@@ -112,5 +112,8 @@
   "settings.incall.cameraBack": "Achtercamera",
   "settings.incall.notifParticipant": "Deelnemer aangesloten",
   "settings.incall.notifHandRaised": "Hand opgestoken",
-  "settings.incall.notifMessage": "Bericht ontvangen"
+  "settings.incall.notifMessage": "Bericht ontvangen",
+  "home.connect": "Inloggen",
+  "home.logout": "Uitloggen",
+  "home.loggedAs": "Ingelogd als"
 }
