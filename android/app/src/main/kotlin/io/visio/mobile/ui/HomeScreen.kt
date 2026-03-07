@@ -27,7 +27,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -37,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +61,7 @@ import io.visio.mobile.ui.i18n.Strings
 import io.visio.mobile.ui.theme.VisioColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.visio.RoomValidationResult
 
@@ -88,6 +92,7 @@ fun HomeScreen(
     val slugRegex = remember { Regex("^[a-z]{3}-[a-z]{4}-[a-z]{3}$") }
     var meetInstances by remember { mutableStateOf(listOf<String>()) }
     var showServerPicker by remember { mutableStateOf(false) }
+    var showCreateRoom by remember { mutableStateOf(false) }
     var customServer by remember { mutableStateOf("") }
 
     // Load meet instances from settings
@@ -382,6 +387,33 @@ fun HomeScreen(
                 modifier = Modifier.padding(vertical = 4.dp),
             )
         }
+
+        if (VisioManager.isAuthenticated) {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { showCreateRoom = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text(
+                    Strings.t("home.createRoom", lang),
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+        }
+    }
+
+    if (showCreateRoom) {
+        CreateRoomDialog(
+            meetInstances = meetInstances,
+            lang = lang,
+            onCreated = { roomUrl ->
+                showCreateRoom = false
+                onJoin(roomUrl, username)
+            },
+            onDismiss = { showCreateRoom = false },
+        )
     }
 }
 
@@ -461,6 +493,109 @@ private fun AuthenticatedCard(
             )
         }
     }
+}
+
+@Composable
+private fun CreateRoomDialog(
+    meetInstances: List<String>,
+    lang: String,
+    onCreated: (roomUrl: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val meetInstance = meetInstances.firstOrNull() ?: return
+    var name by remember { mutableStateOf("") }
+    var accessLevel by remember { mutableStateOf("public") }
+    var creating by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.t("home.createRoom", lang)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(Strings.t("home.createRoom.name", lang)) },
+                    placeholder = { Text(Strings.t("home.createRoom.namePlaceholder", lang)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Text(
+                    text = Strings.t("home.createRoom.access", lang),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = accessLevel == "public",
+                        onClick = { accessLevel = "public" },
+                    )
+                    Column(modifier = Modifier.padding(start = 4.dp)) {
+                        Text(Strings.t("home.createRoom.public", lang), style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.t("home.createRoom.publicDesc", lang), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = accessLevel == "trusted",
+                        onClick = { accessLevel = "trusted" },
+                    )
+                    Column(modifier = Modifier.padding(start = 4.dp)) {
+                        Text(Strings.t("home.createRoom.trusted", lang), style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.t("home.createRoom.trustedDesc", lang), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                if (error != null) {
+                    Text(
+                        text = error!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    creating = true
+                    error = null
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val result = VisioManager.client.createRoom(
+                                "https://$meetInstance",
+                                name.trim(),
+                                accessLevel,
+                            )
+                            withContext(Dispatchers.Main) {
+                                onCreated("https://$meetInstance/${result.slug}")
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                error = e.message ?: Strings.t("home.createRoom.error", lang)
+                                creating = false
+                            }
+                        }
+                    }
+                },
+                enabled = name.trim().isNotEmpty() && !creating,
+            ) {
+                Text(
+                    if (creating) Strings.t("home.createRoom.creating", lang)
+                    else Strings.t("home.createRoom.create", lang)
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(Strings.t("settings.cancel", lang))
+            }
+        },
+    )
 }
 
 @Composable
