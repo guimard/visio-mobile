@@ -1,12 +1,16 @@
 package io.visio.mobile.auth
 
 import android.annotation.SuppressLint
+import android.net.http.SslError
 import android.os.Bundle
 import android.util.Log
 import android.webkit.CookieManager
+import android.webkit.SslErrorHandler
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 
 class OidcLoginActivity : ComponentActivity() {
@@ -49,26 +53,40 @@ class OidcLoginActivity : ComponentActivity() {
                 view: WebView,
                 request: WebResourceRequest,
             ): Boolean {
-                val url = request.url.toString()
-                Log.d(TAG, "shouldOverrideUrlLoading: $url")
-                // Let all URLs load in the WebView (SSO, callback, etc.)
+                Log.d(TAG, "shouldOverrideUrlLoading: ${request.url}")
                 return false
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 Log.d(TAG, "onPageFinished: $url")
-
-                // After auth completes, the callback redirects to returnTo
-                // At this point the sessionid cookie should be set
                 if (!cookieExtracted && url.startsWith(returnTo) && !url.contains("/api/v1.0/authenticate")) {
                     tryExtractSessionCookie(meetInstance)
+                }
+            }
+
+            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                Log.e(TAG, "SSL error for ${error.url}: ${error.primaryError}")
+                handler.cancel()
+                showErrorAndFinish("SSL certificate error for ${error.url?.substringBefore("/", error.url.toString()) ?: "server"}")
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) {
+                    Log.e(TAG, "WebView error: ${error.description} (${error.errorCode})")
+                    showErrorAndFinish("Connection error: ${error.description}")
                 }
             }
         }
 
         setContentView(webView)
         webView.loadUrl(authUrl)
+    }
+
+    private fun showErrorAndFinish(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        setResult(RESULT_CANCELED)
+        finish()
     }
 
     private fun tryExtractSessionCookie(meetInstance: String) {
