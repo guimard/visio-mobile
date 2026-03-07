@@ -86,6 +86,7 @@ impl VisioEventListener for DesktopEventListener {
                     visio_core::ConnectionState::Connecting => "connecting",
                     visio_core::ConnectionState::Connected => "connected",
                     visio_core::ConnectionState::Reconnecting { .. } => "reconnecting",
+                    visio_core::ConnectionState::WaitingForHost => "waiting_for_host",
                 };
                 tracing::info!("connection state changed: {name}");
                 if let Some(app) = APP_HANDLE.get() {
@@ -221,6 +222,25 @@ impl VisioEventListener for DesktopEventListener {
                     );
                 }
             }
+            VisioEvent::LobbyParticipantJoined { id, username } => {
+                tracing::info!("lobby participant joined: {username} (id={id})");
+                if let Some(app) = APP_HANDLE.get() {
+                    let _ = app.emit(
+                        "lobby-participant-joined",
+                        serde_json::json!({ "id": id, "username": username }),
+                    );
+                }
+            }
+            VisioEvent::LobbyParticipantLeft { id } => {
+                if let Some(app) = APP_HANDLE.get() {
+                    let _ = app.emit("lobby-participant-left", &id);
+                }
+            }
+            VisioEvent::LobbyDenied => {
+                if let Some(app) = APP_HANDLE.get() {
+                    let _ = app.emit("lobby-denied", ());
+                }
+            }
             VisioEvent::ConnectionLost => {
                 if let Some(app) = APP_HANDLE.get() {
                     let _ = app.emit("connection-lost", ());
@@ -303,6 +323,7 @@ async fn get_connection_state(state: tauri::State<'_, VisioState>) -> Result<Str
         visio_core::ConnectionState::Connecting => "connecting",
         visio_core::ConnectionState::Connected => "connected",
         visio_core::ConnectionState::Reconnecting { .. } => "reconnecting",
+        visio_core::ConnectionState::WaitingForHost => "waiting_for_host",
     };
     Ok(name.to_string())
 }
@@ -627,6 +648,55 @@ async fn set_chat_open(state: tauri::State<'_, VisioState>, open: bool) -> Resul
 }
 
 // ---------------------------------------------------------------------------
+// Lobby commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+async fn list_waiting_participants(
+    state: tauri::State<'_, VisioState>,
+) -> Result<serde_json::Value, String> {
+    let room = state.room.lock().await;
+    let participants = room
+        .list_waiting_participants()
+        .await
+        .map_err(|e| e.to_string())?;
+    let json: Vec<_> = participants
+        .iter()
+        .map(|p| serde_json::json!({ "id": p.id, "username": p.username }))
+        .collect();
+    Ok(serde_json::json!(json))
+}
+
+#[tauri::command]
+async fn admit_participant(
+    state: tauri::State<'_, VisioState>,
+    participant_id: String,
+) -> Result<(), String> {
+    let room = state.room.lock().await;
+    room.handle_lobby_entry(&participant_id, true)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn deny_participant(
+    state: tauri::State<'_, VisioState>,
+    participant_id: String,
+) -> Result<(), String> {
+    let room = state.room.lock().await;
+    room.handle_lobby_entry(&participant_id, false)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn cancel_lobby(state: tauri::State<'_, VisioState>) -> Result<(), String> {
+    let room = state.room.lock().await;
+    room.cancel_lobby().await;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // OIDC authentication commands
 // ---------------------------------------------------------------------------
 
@@ -931,6 +1001,10 @@ pub fn run() {
             lower_hand,
             is_hand_raised,
             set_chat_open,
+            list_waiting_participants,
+            admit_participant,
+            deny_participant,
+            cancel_lobby,
             launch_oidc,
             authenticate,
             logout_session,
