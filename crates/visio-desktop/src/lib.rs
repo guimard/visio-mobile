@@ -241,6 +241,22 @@ impl VisioEventListener for DesktopEventListener {
                     let _ = app.emit("lobby-denied", ());
                 }
             }
+            VisioEvent::ReactionReceived {
+                participant_sid,
+                participant_name,
+                emoji,
+            } => {
+                if let Some(app) = APP_HANDLE.get() {
+                    let _ = app.emit(
+                        "reaction-received",
+                        serde_json::json!({
+                            "participantSid": participant_sid,
+                            "participantName": participant_name,
+                            "emoji": emoji,
+                        }),
+                    );
+                }
+            }
             VisioEvent::ConnectionLost => {
                 if let Some(app) = APP_HANDLE.get() {
                     let _ = app.emit("connection-lost", ());
@@ -645,6 +661,57 @@ async fn set_chat_open(state: tauri::State<'_, VisioState>, open: bool) -> Resul
     let chat = state.chat.lock().await;
     chat.set_chat_open(open);
     Ok(())
+}
+
+#[tauri::command]
+async fn send_reaction(state: tauri::State<'_, VisioState>, emoji: String) -> Result<(), String> {
+    let room = state.room.lock().await;
+    room.send_reaction(&emoji).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_background_mode(
+    state: tauri::State<'_, VisioState>,
+    app: AppHandle,
+    mode: String,
+) -> Result<(), String> {
+    // Validate mode
+    if mode != "off" && mode != "blur" && !mode.starts_with("image:") {
+        return Err("Invalid background mode".into());
+    }
+    // Update BlurProcessor
+    let bg_mode = match mode.as_str() {
+        "blur" => visio_ffi::blur::process::BackgroundMode::Blur,
+        m if m.starts_with("image:") => {
+            if let Ok(id) = m[6..].parse::<u8>() {
+                visio_ffi::blur::process::BackgroundMode::Image(id)
+            } else {
+                return Err("Invalid image ID".into());
+            }
+        }
+        _ => visio_ffi::blur::process::BackgroundMode::Off,
+    };
+    visio_ffi::blur::BlurProcessor::set_mode(bg_mode);
+    // Persist
+    state.settings.set_background_mode(mode);
+    let _ = app.emit("settings-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn get_background_mode(state: tauri::State<'_, VisioState>) -> String {
+    state.settings.get_background_mode()
+}
+
+#[tauri::command]
+fn load_blur_model(model_path: String) -> Result<(), String> {
+    visio_ffi::blur::model::load_model(std::path::Path::new(&model_path))
+}
+
+#[tauri::command]
+fn load_background_image(id: u8, jpeg_path: String) -> Result<(), String> {
+    let jpeg_bytes = std::fs::read(&jpeg_path).map_err(|e| e.to_string())?;
+    visio_ffi::blur::BlurProcessor::load_replacement_image(id, &jpeg_bytes, 640, 480)
 }
 
 // ---------------------------------------------------------------------------
@@ -1090,6 +1157,11 @@ pub fn run() {
             logout_session,
             create_room,
             get_session_state,
+            send_reaction,
+            set_background_mode,
+            get_background_mode,
+            load_blur_model,
+            load_background_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

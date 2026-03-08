@@ -1,11 +1,12 @@
 use futures_util::StreamExt;
 use livekit::data_stream::StreamReader;
 use livekit::participant::ConnectionQuality as LkConnectionQuality;
-use livekit::prelude::{RemoteParticipant, Room, RoomEvent, RoomOptions};
+use livekit::prelude::{DataPacket, RemoteParticipant, Room, RoomEvent, RoomOptions};
 use livekit::track::{RemoteVideoTrack, TrackKind as LkTrackKind, TrackSource as LkTrackSource};
 use livekit::webrtc::audio_stream::native::NativeAudioStream;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use tokio::sync::Mutex;
 
 use crate::audio_playout::AudioPlayoutBuffer;
@@ -40,6 +41,9 @@ pub struct RoomManager {
     lobby_cookie: Arc<Mutex<Option<String>>>,
     session_cookie: Arc<Mutex<Option<String>>>,
     lobby_cancel: Arc<tokio::sync::Notify>,
+    /// Chat unread tracking (shared with event loop).
+    chat_open: Arc<AtomicBool>,
+    unread_count: Arc<AtomicU32>,
 }
 
 impl Default for RoomManager {
@@ -65,6 +69,8 @@ impl RoomManager {
             lobby_cookie: Arc::new(Mutex::new(None)),
             session_cookie: Arc::new(Mutex::new(None)),
             lobby_cancel: Arc::new(tokio::sync::Notify::new()),
+            chat_open: Arc::new(AtomicBool::new(false)),
+            unread_count: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -97,6 +103,21 @@ impl RoomManager {
             self.emitter.clone(),
             self.messages.clone(),
         )
+    }
+
+    /// Mark the chat panel as open or closed.
+    /// When opened, resets the unread count to zero.
+    pub fn set_chat_open(&self, open: bool) {
+        self.chat_open.store(open, Ordering::Relaxed);
+        if open {
+            self.unread_count.store(0, Ordering::Relaxed);
+            self.emitter.emit(VisioEvent::UnreadCountChanged(0));
+        }
+    }
+
+    /// Get the current unread message count.
+    pub fn unread_count(&self) -> u32 {
+        self.unread_count.load(Ordering::Relaxed)
     }
 
     /// Get current connection state.
@@ -170,6 +191,11 @@ impl RoomManager {
             .keys()
             .cloned()
             .collect()
+    }
+
+    /// Set a session cookie for authenticated Meet instances.
+    pub async fn set_session_cookie(&self, cookie: Option<String>) {
+        *self.session_cookie.lock().await = cookie;
     }
 
     /// Connect to a room using the Meet API.
@@ -270,6 +296,8 @@ impl RoomManager {
         let playout_buffer = self.playout_buffer.clone();
         let hand_raise = self.hand_raise.clone();
         let last_meet_url = self.last_meet_url.clone();
+        let chat_open = self.chat_open.clone();
+        let unread_count = self.unread_count.clone();
 
         tokio::spawn(async move {
             Self::event_loop(
@@ -283,6 +311,8 @@ impl RoomManager {
                 playout_buffer,
                 hand_raise,
                 last_meet_url,
+                chat_open,
+                unread_count,
             )
             .await;
         });
@@ -335,6 +365,34 @@ impl RoomManager {
             .ok_or(VisioError::Room("not connected".into()))?
             .lower_hand()
             .await
+    }
+
+    /// Send an animated reaction visible to all participants.
+    ///
+    /// The payload matches the Meet web client protocol:
+    /// `{ "type": "reactionReceived", "data": { "emoji": "<id>" } }`
+    pub async fn send_reaction(&self, emoji: &str) -> Result<(), VisioError> {
+        let room = self.room.lock().await;
+        let room = room
+            .as_ref()
+            .ok_or_else(|| VisioError::Room("not connected".into()))?;
+
+        let payload = serde_json::json!({
+            "type": "reactionReceived",
+            "data": { "emoji": emoji }
+        });
+        let data = payload.to_string().into_bytes();
+
+        room.local_participant()
+            .publish_data(DataPacket {
+                payload: data,
+                reliable: true,
+                ..Default::default()
+            })
+            .await
+            .map_err(|e| VisioError::Room(format!("send reaction: {e}")))?;
+
+        Ok(())
     }
 
     /// Check if the local participant's hand is currently raised.
@@ -450,6 +508,8 @@ impl RoomManager {
         let connection_state = self.connection_state.clone();
         let emitter = self.emitter.clone();
         let last_meet_url = self.last_meet_url.clone();
+        let chat_open = self.chat_open.clone();
+        let unread_count = self.unread_count.clone();
 
         tokio::spawn(async move {
             loop {
@@ -527,6 +587,8 @@ impl RoomManager {
                                         let ev_playout_buffer = playout_buffer.clone();
                                         let ev_hand_raise = hand_raise.clone();
                                         let ev_last_meet_url = last_meet_url.clone();
+                                        let ev_chat_open = chat_open.clone();
+                                        let ev_unread_count = unread_count.clone();
 
                                         tokio::spawn(async move {
                                             RoomManager::event_loop(
@@ -540,6 +602,8 @@ impl RoomManager {
                                                 ev_playout_buffer,
                                                 ev_hand_raise,
                                                 ev_last_meet_url,
+                                                ev_chat_open,
+                                                ev_unread_count,
                                             )
                                             .await;
                                         });
@@ -746,6 +810,8 @@ impl RoomManager {
         playout_buffer: Arc<AudioPlayoutBuffer>,
         hand_raise: Arc<Mutex<Option<HandRaiseManager>>>,
         last_meet_url: Arc<Mutex<Option<String>>>,
+        chat_open: Arc<AtomicBool>,
+        unread_count: Arc<AtomicU32>,
     ) {
         let mut reconnect_attempt: u32 = 0;
         // Track active audio stream tasks so they get cancelled on disconnect
@@ -1054,6 +1120,8 @@ impl RoomManager {
                         let emitter = emitter.clone();
                         let room_ref = room_ref.clone();
                         let identity = participant_identity.to_string();
+                        let chat_open = chat_open.clone();
+                        let unread_count = unread_count.clone();
 
                         tokio::spawn(async move {
                             let reader = reader.take();
@@ -1094,6 +1162,11 @@ impl RoomManager {
                                     );
                                     messages.lock().await.push(msg.clone());
                                     emitter.emit(VisioEvent::ChatMessageReceived(msg));
+                                    if !chat_open.load(Ordering::Relaxed) {
+                                        let count =
+                                            unread_count.fetch_add(1, Ordering::Relaxed) + 1;
+                                        emitter.emit(VisioEvent::UnreadCountChanged(count));
+                                    }
                                 }
                                 Err(e) => {
                                     tracing::warn!("Failed to read chat text stream: {e}");
@@ -1142,6 +1215,25 @@ impl RoomManager {
                         continue;
                     }
 
+                    // Handle reactions from Meet web client (no topic, reliable data)
+                    if let Ok(text) = std::str::from_utf8(&payload)
+                        && let Ok(json) = serde_json::from_str::<serde_json::Value>(text)
+                        && json["type"].as_str() == Some("reactionReceived")
+                    {
+                        if let Some(emoji) = json["data"]["emoji"].as_str() {
+                            let sender_name = participant
+                                .as_ref()
+                                .map(|p| p.name().to_string())
+                                .unwrap_or_default();
+                            emitter.emit(VisioEvent::ReactionReceived {
+                                participant_sid: psid.clone(),
+                                participant_name: sender_name,
+                                emoji: emoji.to_string(),
+                            });
+                        }
+                        continue;
+                    }
+
                     // Legacy fallback: chat messages via DataReceived with topic "lk-chat-topic"
                     // New clients send both Stream + legacy; "ignoreLegacy" flag means
                     // the TextStreamOpened handler already processed it.
@@ -1172,6 +1264,10 @@ impl RoomManager {
                             tracing::info!("Chat via DataReceived: from={psid} text={}", msg.text);
                             messages.lock().await.push(msg.clone());
                             emitter.emit(VisioEvent::ChatMessageReceived(msg));
+                            if !chat_open.load(Ordering::Relaxed) {
+                                let count = unread_count.fetch_add(1, Ordering::Relaxed) + 1;
+                                emitter.emit(VisioEvent::UnreadCountChanged(count));
+                            }
                         }
                     }
                 }

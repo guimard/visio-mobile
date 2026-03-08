@@ -34,6 +34,12 @@ pub enum VisioEvent {
     LobbyParticipantLeft { id: String },
     /// Entry was denied by the host (participant notification).
     LobbyDenied,
+    /// A participant sent an animated reaction (emoji).
+    ReactionReceived {
+        participant_sid: String,
+        participant_name: String,
+        emoji: String,
+    },
     /// Connection lost unexpectedly — native UI should call reconnect().
     ConnectionLost,
 }

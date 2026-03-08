@@ -30,6 +30,8 @@ impl AuthService {
     ///
     /// `meet_url` should be a full URL like `https://meet.example.com/room-slug`
     /// or just `meet.example.com/room-slug`.
+    ///
+    /// `session_cookie` is an optional `sessionid` cookie for authenticated instances.
     pub async fn request_token(
         meet_url: &str,
         username: Option<&str>,
@@ -112,8 +114,8 @@ impl AuthService {
         } else {
             input
         };
-        let re = SLUG_RE
-            .get_or_init(|| regex::Regex::new(r"^[a-z]{3}-[a-z]{4}-[a-z]{3}$").unwrap());
+        let re =
+            SLUG_RE.get_or_init(|| regex::Regex::new(r"^[a-z]{3}-[a-z]{4}-[a-z]{3}$").unwrap());
         if re.is_match(candidate) {
             Ok(candidate.to_string())
         } else {
@@ -131,6 +133,12 @@ impl AuthService {
         session_cookie: Option<&str>,
     ) -> Result<TokenInfo, VisioError> {
         Self::request_token(meet_url, username, session_cookie).await
+    }
+
+    /// Extract the Meet instance hostname from a room URL.
+    pub fn parse_instance(meet_url: &str) -> Result<String, VisioError> {
+        let (instance, _) = Self::parse_meet_url(meet_url)?;
+        Ok(instance)
     }
 
     /// Parse a Meet URL into (instance, room_slug).

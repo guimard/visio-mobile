@@ -31,6 +31,9 @@ crates/visio-desktop/frontend/node_modules/
 .DS_Store
 Thumbs.db
 
+# Native libraries (built by CI via cargo-ndk)
+android/app/src/main/jniLibs/
+
 # UniFFI generated bindings (regenerated on build)
 android/app/src/main/kotlin/generated/
 ios/VisioMobile/Generated/
@@ -44,6 +47,7 @@ android/app/src/main/assets/i18n/
 # AI assistant context
 CLAUDE.md
 docs/plans/
+.claude/
 
 # Ruby / Fastlane
 vendor/bundle/

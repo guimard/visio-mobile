@@ -95,6 +95,11 @@ object VisioManager : VisioEventListener {
     private var _currentAccessLevel: String = ""
     val currentAccessLevel: String get() = _currentAccessLevel
 
+    // Emoji reactions
+    private var reactionIdCounter = 0L
+    private val _reactions = MutableStateFlow<List<ReactionData>>(emptyList())
+    val reactions: StateFlow<List<ReactionData>> = _reactions.asStateFlow()
+
     // Deep link: pre-fill room URL on HomeScreen
     var pendingDeepLink: String? by mutableStateOf(null)
 
@@ -135,6 +140,19 @@ object VisioManager : VisioEventListener {
             displayName = settings.displayName ?: ""
         } catch (e: Exception) {
             Log.e("VisioManager", "Failed to load persisted settings", e)
+        }
+        // Load ONNX segmentation model for background blur
+        try {
+            val modelFile = java.io.File(context.cacheDir, "selfie_segmentation.onnx")
+            if (!modelFile.exists()) {
+                context.assets.open("models/selfie_segmentation.onnx").use { input ->
+                    modelFile.outputStream().use { output -> input.copyTo(output) }
+                }
+            }
+            _client.loadBlurModel(modelFile.absolutePath)
+            Log.i("VisioManager", "Blur model loaded from ${modelFile.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("VisioManager", "Failed to load blur model", e)
         }
         initialized = true
     }
@@ -407,6 +425,10 @@ object VisioManager : VisioEventListener {
         }
     }
 
+    fun sendReaction(emoji: String) {
+        scope.launch { client.sendReaction(emoji) }
+    }
+
     /**
      * Full teardown: stop captures, playout, cancel pending coroutines, disconnect.
      */
@@ -563,6 +585,17 @@ object VisioManager : VisioEventListener {
             is VisioEvent.LobbyDenied -> {
                 _lobbyDenied.value = true
             }
+            is VisioEvent.ReactionReceived -> {
+                val reaction =
+                    ReactionData(
+                        id = reactionIdCounter++,
+                        participantSid = event.participantSid,
+                        participantName = event.participantName,
+                        emoji = event.emoji,
+                        timestamp = System.currentTimeMillis(),
+                    )
+                _reactions.value = _reactions.value + reaction
+            }
             is VisioEvent.ConnectionLost -> {
                 scope.launch {
                     try {
@@ -575,3 +608,11 @@ object VisioManager : VisioEventListener {
         }
     }
 }
+
+data class ReactionData(
+    val id: Long,
+    val participantSid: String,
+    val participantName: String,
+    val emoji: String,
+    val timestamp: Long,
+)

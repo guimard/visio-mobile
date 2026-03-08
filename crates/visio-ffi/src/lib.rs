@@ -14,6 +14,8 @@ use visio_core::{
     },
 };
 
+pub mod blur;
+
 uniffi::include_scaffolding!("visio");
 
 // ── Android WebRTC initialization ────────────────────────────────────
@@ -354,6 +356,7 @@ pub enum VisioEvent {
     LobbyParticipantJoined { id: String, username: String },
     LobbyParticipantLeft { id: String },
     LobbyDenied,
+    ReactionReceived { participant_sid: String, participant_name: String, emoji: String },
     ConnectionLost,
 }
 
@@ -403,6 +406,9 @@ impl From<CoreVisioEvent> for VisioEvent {
                 Self::LobbyParticipantLeft { id }
             }
             CoreVisioEvent::LobbyDenied => Self::LobbyDenied,
+            CoreVisioEvent::ReactionReceived { participant_sid, participant_name, emoji } => {
+                Self::ReactionReceived { participant_sid, participant_name, emoji }
+            }
             CoreVisioEvent::ConnectionLost => Self::ConnectionLost,
         }
     }
@@ -424,6 +430,8 @@ pub enum VisioError {
     InvalidUrl { msg: String },
     #[error("Session error: {msg}")]
     Session { msg: String },
+    #[error("{msg}")]
+    Generic { msg: String },
 }
 
 impl From<visio_core::VisioError> for VisioError {
@@ -753,12 +761,17 @@ impl VisioClient {
         self.rt.block_on(self.room_manager.is_hand_raised())
     }
 
+    pub fn send_reaction(&self, emoji: String) -> Result<(), VisioError> {
+        self.rt.block_on(self.room_manager.send_reaction(&emoji))
+            .map_err(VisioError::from)
+    }
+
     pub fn set_chat_open(&self, open: bool) {
-        self.chat.set_chat_open(open);
+        self.room_manager.set_chat_open(open);
     }
 
     pub fn unread_count(&self) -> u32 {
-        self.chat.unread_count()
+        self.room_manager.unread_count()
     }
 
     pub fn validate_room(&self, url: String, username: Option<String>) -> RoomValidationResult {
@@ -986,6 +999,42 @@ impl VisioClient {
         visio_log(&format!("VISIO FFI: stopping video renderer for {track_sid}"));
         visio_video::stop_track_renderer(&track_sid);
     }
+
+    pub fn set_background_mode(&self, mode: String) {
+        // 1. Persist in settings
+        self.settings.set_background_mode(mode.clone());
+
+        // 2. Update BlurProcessor mode
+        let bg_mode = match mode.as_str() {
+            "blur" => blur::process::BackgroundMode::Blur,
+            m if m.starts_with("image:") => {
+                if let Ok(id) = m[6..].parse::<u8>() {
+                    blur::process::BackgroundMode::Image(id)
+                } else {
+                    blur::process::BackgroundMode::Off
+                }
+            }
+            _ => blur::process::BackgroundMode::Off,
+        };
+        blur::BlurProcessor::set_mode(bg_mode);
+    }
+
+    pub fn get_background_mode(&self) -> String {
+        self.settings.get_background_mode()
+    }
+
+    pub fn load_background_image(&self, id: u8, jpeg_path: String) -> Result<(), VisioError> {
+        let jpeg_bytes = std::fs::read(&jpeg_path)
+            .map_err(|e| VisioError::Generic { msg: format!("Failed to read image: {e}") })?;
+        // Use 640x480 as default target — will be re-loaded at actual frame dimensions if needed
+        blur::BlurProcessor::load_replacement_image(id, &jpeg_bytes, 640, 480)
+            .map_err(|e| VisioError::Generic { msg: e })
+    }
+
+    pub fn load_blur_model(&self, model_path: String) -> Result<(), VisioError> {
+        blur::model::load_model(std::path::Path::new(&model_path))
+            .map_err(|e| VisioError::Generic { msg: e })
+    }
 }
 
 // ── Global camera video source (for Android Camera2 → Rust pipeline) ─
@@ -1181,6 +1230,18 @@ pub unsafe extern "C" fn Java_io_visio_mobile_NativeVideo_nativePushCameraFrame(
                 v_dst[dst_start + col] = unsafe { *row_base.add(col * vps) };
             }
         }
+    }
+
+    // Apply background processing (blur/replacement) if enabled
+    {
+        let strides = i420.strides();
+        let (y_data, u_data, v_data) = i420.data_mut();
+        blur::BlurProcessor::process_i420(
+            y_data, u_data, v_data,
+            w as usize, h as usize,
+            strides.0 as usize, strides.1 as usize, strides.2 as usize,
+            rotation_degrees as u32,
+        );
     }
 
     let rotation = match rotation_degrees {
@@ -1436,6 +1497,18 @@ pub unsafe extern "C" fn visio_push_ios_camera_frame(
         let src = unsafe { std::slice::from_raw_parts(v_ptr.add(row * v_stride as usize), chroma_w) };
         let dst_start = row * strides.2 as usize;
         v_dst[dst_start..dst_start + chroma_w].copy_from_slice(src);
+    }
+
+    // Apply background processing (blur/replacement) if enabled
+    {
+        let strides = i420.strides();
+        let (y_data, u_data, v_data) = i420.data_mut();
+        blur::BlurProcessor::process_i420(
+            y_data, u_data, v_data,
+            width as usize, height as usize,
+            strides.0 as usize, strides.1 as usize, strides.2 as usize,
+            0, // iOS frames are pre-rotated by AVCaptureConnection
+        );
     }
 
     let frame = VideoFrame {

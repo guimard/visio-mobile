@@ -17,6 +17,8 @@ struct CallView: View {
     @State private var showParticipantList: Bool = false
     @State private var focusedParticipant: String? = nil
     // lobbyNotificationDismissTask removed — banner is now persistent while participants wait
+    @State private var showOverflow: Bool = false
+    @State private var showReactionPicker: Bool = false
 
     private var lang: String { manager.currentLang }
     private var isDark: Bool { manager.currentTheme == "dark" }
@@ -43,45 +45,52 @@ struct CallView: View {
                 }
 
                 // Main content area: video grid, waiting for host, or waiting for participants
-                if case .waitingForHost = manager.connectionState {
-                    Spacer()
-                    VStack(spacing: 24) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(isDark ? .white : VisioColors.primary500)
-                        Text(Strings.t("lobby.waiting", lang: lang))
-                            .font(.title2)
-                            .foregroundStyle(VisioColors.onBackground(dark: isDark))
-                        Text(Strings.t("lobby.waitingDesc", lang: lang))
-                            .foregroundStyle(VisioColors.secondaryText(dark: isDark))
-                        Button(action: {
-                            manager.cancelLobby()
-                            manager.disconnect()
-                            CallKitManager.shared.reportCallEnded()
-                            dismiss()
-                        }) {
-                            Text(Strings.t("lobby.cancel", lang: lang))
+                ZStack {
+                    if case .waitingForHost = manager.connectionState {
+                        VStack(spacing: 24) {
+                            Spacer()
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .tint(isDark ? .white : VisioColors.primary500)
+                            Text(Strings.t("lobby.waiting", lang: lang))
+                                .font(.title2)
+                                .foregroundStyle(VisioColors.onBackground(dark: isDark))
+                            Text(Strings.t("lobby.waitingDesc", lang: lang))
+                                .foregroundStyle(VisioColors.secondaryText(dark: isDark))
+                            Button(action: {
+                                manager.cancelLobby()
+                                manager.disconnect()
+                                CallKitManager.shared.reportCallEnded()
+                                dismiss()
+                            }) {
+                                Text(Strings.t("lobby.cancel", lang: lang))
+                            }
+                            .buttonStyle(.bordered)
+                            Spacer()
                         }
-                        .buttonStyle(.bordered)
+                        .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if manager.participants.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer()
+                            ProgressView()
+                                .tint(isDark ? .white : VisioColors.primary500)
+                            Text(Strings.t("call.waiting", lang: lang))
+                                .foregroundStyle(VisioColors.secondaryText(dark: isDark))
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if let focused = focusedParticipant,
+                              let focusedP = manager.participants.first(where: { $0.sid == focused }) {
+                        // Focus layout
+                        focusLayout(focused: focusedP)
+                    } else {
+                        // Grid layout
+                        gridLayout
                     }
-                    .padding()
-                    Spacer()
-                } else if manager.participants.isEmpty {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .tint(isDark ? .white : VisioColors.primary500)
-                        Text(Strings.t("call.waiting", lang: lang))
-                            .foregroundStyle(VisioColors.secondaryText(dark: isDark))
-                    }
-                    Spacer()
-                } else if let focused = focusedParticipant,
-                          let focusedP = manager.participants.first(where: { $0.sid == focused }) {
-                    // Focus layout
-                    focusLayout(focused: focusedP)
-                } else {
-                    // Grid layout
-                    gridLayout
+
+                    // Reaction overlay
+                    ReactionOverlay(reactions: manager.reactions)
                 }
 
                 // Control bar (hidden when waiting for host)
@@ -301,149 +310,258 @@ struct CallView: View {
             .background(color)
     }
 
+    // MARK: - Reaction Emojis
+
+    private static let reactionEmojis: [(id: String, emoji: String)] = [
+        ("thumbs-up", "\u{1F44D}"),
+        ("thumbs-down", "\u{1F44E}"),
+        ("clapping-hands", "\u{1F44F}"),
+        ("red-heart", "\u{2764}\u{FE0F}"),
+        ("face-with-tears-of-joy", "\u{1F602}"),
+        ("face-with-open-mouth", "\u{1F62E}"),
+        ("party-popper", "\u{1F389}"),
+        ("folded-hands", "\u{1F64F}"),
+    ]
+
     // MARK: - Control Bar
 
     private var controlBar: some View {
-        HStack(spacing: 8) {
-            // Mic toggle + audio route chevron (grouped)
-            HStack(spacing: 1) {
-                // Mic toggle
+        VStack(spacing: 4) {
+            // Reaction picker row (above control bar)
+            if showReactionPicker {
+                HStack(spacing: 0) {
+                    ForEach(Self.reactionEmojis, id: \.id) { item in
+                        Button {
+                            manager.sendReaction(item.id)
+                            showReactionPicker = false
+                        } label: {
+                            Text(item.emoji)
+                                .font(.system(size: 28))
+                                .padding(4)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .background(Color.black.opacity(0.8))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // Overflow menu row (above control bar)
+            if showOverflow {
+                HStack(spacing: 0) {
+                    Spacer()
+
+                    // Hand raise
+                    overflowItem(
+                        icon: "hand.raised.fill",
+                        label: Strings.t(manager.isHandRaised ? "control.lowerHand" : "control.raiseHand", lang: lang),
+                        isActive: manager.isHandRaised,
+                        activeColor: VisioColors.handRaise
+                    ) {
+                        manager.toggleHandRaise()
+                        showOverflow = false
+                    }
+
+                    Spacer()
+
+                    // Reaction
+                    overflowItem(
+                        icon: "face.smiling",
+                        label: "Reaction",
+                        isActive: false,
+                        activeColor: .clear
+                    ) {
+                        showOverflow = false
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showReactionPicker.toggle()
+                        }
+                    }
+
+                    Spacer()
+
+                    // Settings
+                    overflowItem(
+                        icon: "gearshape.fill",
+                        label: Strings.t("settings.incall", lang: lang),
+                        isActive: false,
+                        activeColor: .clear
+                    ) {
+                        showOverflow = false
+                        inCallSettingsTab = 0
+                        showInCallSettings = true
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.black.opacity(0.8))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // Main control bar
+            HStack(spacing: 8) {
+                // Mic toggle + audio route chevron (grouped)
+                HStack(spacing: 1) {
+                    Button {
+                        manager.toggleMic()
+                    } label: {
+                        Image(systemName: manager.isMicEnabled ? "mic.fill" : "mic.slash.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                            .background(manager.isMicEnabled ? VisioColors.primaryDark100 : VisioColors.error200)
+                            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8, bottomTrailingRadius: 2, topTrailingRadius: 2))
+                    }
+                    .accessibilityLabel(Strings.t(manager.isMicEnabled ? "control.mute" : "control.unmute", lang: lang))
+
+                    Button {
+                        showAudioDevices = true
+                    } label: {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 22, height: 38)
+                            .background(VisioColors.primaryDark100)
+                            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 2, bottomTrailingRadius: 8, topTrailingRadius: 8))
+                    }
+                    .accessibilityLabel(Strings.t("control.audioDevices", lang: lang))
+                }
+
+                // Camera toggle
                 Button {
-                    manager.toggleMic()
+                    manager.toggleCamera()
                 } label: {
-                    Image(systemName: manager.isMicEnabled ? "mic.fill" : "mic.slash.fill")
+                    Image(systemName: manager.isCameraEnabled ? "video.fill" : "video.slash.fill")
                         .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(manager.isMicEnabled ? VisioColors.primaryDark100 : VisioColors.error200)
-                        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12, bottomTrailingRadius: 4, topTrailingRadius: 4))
+                        .frame(width: 38, height: 38)
+                        .background(manager.isCameraEnabled ? VisioColors.primaryDark100 : VisioColors.error200)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .accessibilityLabel(Strings.t(manager.isMicEnabled ? "control.mute" : "control.unmute", lang: manager.currentLang))
+                .accessibilityLabel(Strings.t(manager.isCameraEnabled ? "control.camOff" : "control.camOn", lang: lang))
 
-                // Audio route chevron
+                // Participants with count badge
                 Button {
-                    showAudioDevices = true
+                    showParticipantList = true
                 } label: {
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 28, height: 44)
-                        .background(VisioColors.primaryDark100)
-                        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 4, bottomTrailingRadius: 12, topTrailingRadius: 12))
-                }
-                .accessibilityLabel(Strings.t("control.audioDevices", lang: manager.currentLang))
-            }
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                            .background(VisioColors.primaryDark100)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            // Camera toggle
-            Button {
-                manager.toggleCamera()
-            } label: {
-                Image(systemName: manager.isCameraEnabled ? "video.fill" : "video.slash.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(manager.isCameraEnabled ? VisioColors.primaryDark100 : VisioColors.error200)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .accessibilityLabel(Strings.t(manager.isCameraEnabled ? "control.camOff" : "control.camOn", lang: manager.currentLang))
-
-            // Hand raise
-            Button {
-                manager.toggleHandRaise()
-            } label: {
-                Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(manager.isHandRaised ? .black : .white)
-                    .frame(width: 44, height: 44)
-                    .background(manager.isHandRaised ? VisioColors.handRaise : VisioColors.primaryDark100)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .accessibilityLabel(Strings.t(manager.isHandRaised ? "control.lowerHand" : "control.raiseHand", lang: manager.currentLang))
-
-            // Participants with count badge
-            Button {
-                showParticipantList = true
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(VisioColors.primaryDark100)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    Text("\(manager.participants.count)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(VisioColors.primary500)
-                        .clipShape(Capsule())
-                        .offset(x: 4, y: -4)
-                }
-            }
-            .accessibilityLabel(Strings.t("participants.title", lang: manager.currentLang))
-
-            // Chat with unread badge
-            Button {
-                showChat = true
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "message.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(VisioColors.primaryDark100)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    if manager.unreadCount > 0 {
-                        Text(manager.unreadCount <= 9 ? "\(manager.unreadCount)" : "9+")
+                        Text("\(manager.participants.count)")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
-                            .background(VisioColors.error500)
+                            .background(VisioColors.primary500)
                             .clipShape(Capsule())
                             .offset(x: 4, y: -4)
                     }
                 }
-            }
-            .accessibilityLabel(Strings.t("chat", lang: manager.currentLang))
+                .accessibilityLabel(Strings.t("participants.title", lang: lang))
 
-            // In-call settings
-            Button {
-                inCallSettingsTab = 0
-                showInCallSettings = true
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(VisioColors.primaryDark100)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .accessibilityLabel(Strings.t("settings", lang: manager.currentLang))
+                // Chat with unread badge
+                Button {
+                    showChat = true
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                            .background(VisioColors.primaryDark100)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            // Hangup
-            Button {
-                manager.disconnect()
-                CallKitManager.shared.reportCallEnded()
-                dismiss()
-            } label: {
-                Image(systemName: "phone.down.fill")
+                        if manager.unreadCount > 0 {
+                            Text(manager.unreadCount <= 9 ? "\(manager.unreadCount)" : "9+")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(VisioColors.error500)
+                                .clipShape(Capsule())
+                                .offset(x: 4, y: -4)
+                        }
+                    }
+                }
+                .accessibilityLabel(Strings.t("chat", lang: lang))
+
+                // More (overflow) button
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showOverflow.toggle()
+                        if showOverflow {
+                            showReactionPicker = false
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(width: 38, height: 38)
+                        .background(showOverflow ? VisioColors.primary500 : VisioColors.primaryDark100)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .accessibilityLabel("More")
+
+                // Hangup
+                Button {
+                    manager.disconnect()
+                    CallKitManager.shared.reportCallEnded()
+                    dismiss()
+                } label: {
+                    Image(systemName: "phone.down.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(width: 38, height: 38)
+                        .background(VisioColors.error500)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .accessibilityLabel(Strings.t("control.leave", lang: lang))
+            }
+            .padding(8)
+            .background(VisioColors.surface(dark: isDark))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 8)
+        }
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Overflow Menu Item
+
+    private func overflowItem(
+        icon: String,
+        label: String,
+        isActive: Bool,
+        activeColor: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
                     .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(isActive ? .black : .white)
+                    .frame(width: 38, height: 38)
+                    .background(isActive ? activeColor : VisioColors.primaryDark100)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Text(label)
+                    .font(.system(size: 10))
                     .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(VisioColors.error500)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .lineLimit(1)
             }
             .accessibilityLabel(Strings.t("control.leave", lang: manager.currentLang))
         }
-        .padding(12)
-        .background(VisioColors.surface(dark: isDark))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
     }
 }
 
@@ -725,6 +843,77 @@ struct AudioDeviceSheet: View {
             return "iphone"
         default:
             return "mic"
+        }
+    }
+}
+
+// MARK: - Reaction Overlay
+
+struct ReactionOverlay: View {
+    let reactions: [ReactionData]
+
+    private static let reactionEmojis: [(id: String, emoji: String)] = [
+        ("thumbs-up", "\u{1F44D}"),
+        ("thumbs-down", "\u{1F44E}"),
+        ("clapping-hands", "\u{1F44F}"),
+        ("red-heart", "\u{2764}\u{FE0F}"),
+        ("face-with-tears-of-joy", "\u{1F602}"),
+        ("face-with-open-mouth", "\u{1F62E}"),
+        ("party-popper", "\u{1F389}"),
+        ("folded-hands", "\u{1F64F}"),
+    ]
+
+    var body: some View {
+        let now = Date()
+        let active = reactions.filter { now.timeIntervalSince($0.timestamp) < 3.0 }
+
+        GeometryReader { geo in
+            ZStack(alignment: .bottomLeading) {
+                Color.clear
+
+                ForEach(active) { reaction in
+                    FloatingReaction(
+                        reaction: reaction,
+                        emojiDisplay: Self.reactionEmojis.first(where: { $0.id == reaction.emoji })?.emoji ?? reaction.emoji,
+                        screenWidth: geo.size.width
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+struct FloatingReaction: View {
+    let reaction: ReactionData
+    let emojiDisplay: String
+    let screenWidth: CGFloat
+
+    @State private var progress: CGFloat = 0
+
+    var body: some View {
+        let xOffset = CGFloat(abs((reaction.id * 37 + 13) % Int64(max(screenWidth * 0.2, 1))))
+        let yOffset = -300.0 * progress
+        let alpha = progress > 0.7 ? 1.0 - ((progress - 0.7) / 0.3) : 1.0
+
+        VStack(spacing: 2) {
+            Text(emojiDisplay)
+                .font(.system(size: 32))
+            Text(reaction.participantName)
+                .font(.system(size: 10))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(Color.black.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .offset(x: xOffset, y: yOffset)
+        .opacity(alpha)
+        .onAppear {
+            withAnimation(.linear(duration: 3.0)) {
+                progress = 1.0
+            }
         }
     }
 }

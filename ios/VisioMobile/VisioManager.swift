@@ -39,6 +39,8 @@ class VisioManager: ObservableObject {
     @Published var authenticatedDisplayName: String = ""
     @Published var authenticatedEmail: String = ""
     @Published var authenticatedMeetInstance: String = ""
+    @Published var backgroundMode: String = "off"
+    @Published var reactions: [ReactionData] = []
 
     let authManager = OidcAuthManager()
 
@@ -47,6 +49,7 @@ class VisioManager: ObservableObject {
     let client: VisioClient
     private var audioPlayout: AudioPlayout?
     private var cameraCapture: CameraCapture?
+    private var reactionIdCounter: Int64 = 0
 
     // MARK: - Init
 
@@ -80,6 +83,18 @@ class VisioManager: ObservableObject {
                 trackSid: trackSid
             )
         }, nil)
+
+        // Load ONNX segmentation model for background blur
+        if let modelUrl = Bundle.main.url(forResource: "selfie_segmentation", withExtension: "onnx") {
+            do {
+                try client.loadBlurModel(modelPath: modelUrl.path)
+                NSLog("VisioManager: blur model loaded")
+            } catch {
+                NSLog("VisioManager: failed to load blur model: \(error)")
+            }
+        } else {
+            NSLog("VisioManager: selfie_segmentation.onnx not found in bundle")
+        }
     }
 
     // MARK: - Public API
@@ -160,6 +175,7 @@ class VisioManager: ObservableObject {
                 self.waitingParticipants = []
                 self.lobbyNotification = nil
                 self.lobbyDenied = false
+                self.reactions = []
             }
         }
     }
@@ -223,6 +239,19 @@ class VisioManager: ObservableObject {
             } catch {
                 DispatchQueue.main.async {
                     self.errorMessage = "Hand raise failed: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    func sendReaction(_ emoji: String) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.client.sendReaction(emoji: emoji)
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = "Reaction failed: \(error.localizedDescription)"
                 }
             }
         }
@@ -587,6 +616,17 @@ extension VisioManager: VisioEventListener {
                     self.isHandRaised = self.client.isHandRaised()
                 }
 
+            case .reactionReceived(let participantSid, let participantName, let emoji):
+                let reaction = ReactionData(
+                    id: self.reactionIdCounter,
+                    participantSid: participantSid,
+                    participantName: participantName,
+                    emoji: emoji,
+                    timestamp: Date()
+                )
+                self.reactionIdCounter += 1
+                self.reactions.append(reaction)
+
             case .unreadCountChanged(let count):
                 self.unreadCount = Int(count)
 
@@ -617,4 +657,14 @@ extension VisioManager: VisioEventListener {
             }
         }
     }
+}
+
+// MARK: - Reaction Data
+
+struct ReactionData: Identifiable {
+    let id: Int64
+    let participantSid: String
+    let participantName: String
+    let emoji: String
+    let timestamp: Date
 }

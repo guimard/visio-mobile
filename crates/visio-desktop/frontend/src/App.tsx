@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { resolveResource } from "@tauri-apps/api/path";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import {
   RiMicLine,
@@ -29,6 +30,8 @@ import {
   RiSettings3Line,
   RiLogoutBoxRLine,
   RiAccountCircleLine,
+  RiMore2Fill,
+  RiEmotionLine,
 } from "@remixicon/react";
 
 // ---------------------------------------------------------------------------
@@ -69,6 +72,25 @@ interface Settings {
   camera_enabled_on_join: boolean;
   theme: string;
 }
+
+interface ReactionData {
+  id: number;
+  participantSid: string;
+  participantName: string;
+  emoji: string;
+  timestamp: number;
+}
+
+const REACTION_EMOJIS: [string, string][] = [
+  ["thumbs-up", "\u{1F44D}"],
+  ["thumbs-down", "\u{1F44E}"],
+  ["clapping-hands", "\u{1F44F}"],
+  ["red-heart", "\u2764\uFE0F"],
+  ["face-with-tears-of-joy", "\u{1F602}"],
+  ["face-with-open-mouth", "\u{1F62E}"],
+  ["party-popper", "\u{1F389}"],
+  ["folded-hands", "\u{1F64F}"],
+];
 
 // ---------------------------------------------------------------------------
 // i18n
@@ -280,10 +302,10 @@ function HomeView({
 }) {
   const t = useT();
   const [meetUrl, setMeetUrl] = useState("");
+  const [resolvedUrl, setResolvedUrl] = useState("");
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
-  const [roomStatus, setRoomStatus] = useState<"idle" | "checking" | "valid" | "not_found" | "auth_required" | "error">("idle");
-  const [resolvedUrl, setResolvedUrl] = useState("");
+  const [roomStatus, setRoomStatus] = useState<"idle" | "checking" | "valid" | "not_found" | "auth_required" | "authenticating" | "error">("idle");
   const [meetInstances, setMeetInstances] = useState<string[]>([]);
   const [showServerPicker, setShowServerPicker] = useState(false);
   const [customServer, setCustomServer] = useState("");
@@ -292,14 +314,6 @@ function HomeView({
   useEffect(() => {
     invoke<string[]>("get_meet_instances").then(setMeetInstances).catch(() => {});
   }, []);
-
-  function resolveUrl(input: string): string {
-    const trimmed = input.trim();
-    if (SLUG_REGEX.test(trimmed) && meetInstances.length > 0) {
-      return `https://${meetInstances[0]}/${trimmed}`;
-    }
-    return trimmed;
-  }
 
   useEffect(() => {
     if (deepLinkUrl) {
@@ -343,7 +357,7 @@ function HomeView({
           if (result.status === "auth_required") {
             setRoomStatus("auth_required");
             setResolvedUrl(url);
-            foundValid = true;
+            foundValid = true; // don't show not_found
             break;
           }
         }
@@ -374,6 +388,26 @@ function HomeView({
     } catch (e) {
       setError(String(e));
       setJoining(false);
+    }
+  };
+
+  const handleAuth = async () => {
+    try {
+      // Extract the instance hostname from the resolved URL
+      const url = new URL(resolvedUrl.startsWith("http") ? resolvedUrl : `https://${resolvedUrl}`);
+      setRoomStatus("authenticating");
+      await invoke("start_oidc_auth", { meetInstance: url.hostname });
+      // After auth, re-trigger validation by bumping state
+      setRoomStatus("checking");
+      const result = await invoke<{ status: string }>(
+        "validate_room", { url: resolvedUrl, username: displayName.trim() || null }
+      );
+      if (result.status === "valid") setRoomStatus("valid");
+      else if (result.status === "auth_required") setRoomStatus("auth_required");
+      else setRoomStatus("error");
+    } catch (e) {
+      setError(String(e));
+      setRoomStatus("auth_required");
     }
   };
 
@@ -483,6 +517,8 @@ function HomeView({
           {roomStatus === "checking" && <div className="room-status checking">{t("home.room.checking")}</div>}
           {roomStatus === "valid" && <div className="room-status valid">{t("home.room.valid")}</div>}
           {roomStatus === "not_found" && <div className="room-status not-found">{t("home.room.notFound")}</div>}
+          {roomStatus === "auth_required" && <div className="room-status auth-required">{t("home.room.authRequired")}</div>}
+          {roomStatus === "authenticating" && <div className="room-status checking">{t("home.room.authenticating")}</div>}
           {roomStatus === "error" && <div className="room-status error">{t("home.room.error")}</div>}
         </div>
         <div className="form-group">
@@ -497,9 +533,15 @@ function HomeView({
             onKeyDown={handleKeyDown}
           />
         </div>
-        <button className="btn btn-primary" disabled={joining || roomStatus !== "valid"} onClick={handleJoin}>
-          {joining ? t("home.connecting") : t("home.join")}
-        </button>
+        {roomStatus === "auth_required" ? (
+          <button className="btn btn-primary" onClick={handleAuth}>
+            {t("home.signIn")}
+          </button>
+        ) : (
+          <button className="btn btn-primary" disabled={joining || roomStatus !== "valid"} onClick={handleJoin}>
+            {joining ? t("home.connecting") : t("home.join")}
+          </button>
+        )}
         {isAuthenticated && authenticatedMeetInstance && (
           <button
             className="btn btn-primary"
@@ -1081,6 +1123,82 @@ function CallView({
   const [focusedParticipant, setFocusedParticipant] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [bgMode, setBgMode] = useState("off");
+  const [showOverflow, setShowOverflow] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [reactions, setReactions] = useState<ReactionData[]>([]);
+  const reactionIdCounter = useRef(0);
+
+  // Listen for reaction events
+  useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+    listen<{ participantSid: string; participantName: string; emoji: string }>(
+      "reaction-received",
+      (event) => {
+        const { participantSid, participantName, emoji } = event.payload;
+        const id = ++reactionIdCounter.current;
+        const reaction: ReactionData = {
+          id,
+          participantSid,
+          participantName,
+          emoji,
+          timestamp: Date.now(),
+        };
+        setReactions((prev) => [...prev, reaction]);
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+          setReactions((prev) => prev.filter((r) => r.id !== id));
+        }, 3000);
+      }
+    ).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  const handleSendReaction = async (emojiId: string) => {
+    try {
+      await invoke("send_reaction", { emoji: emojiId });
+    } catch (e) {
+      console.error("send_reaction error:", e);
+    }
+    setShowReactionPicker(false);
+    setShowOverflow(false);
+  };
+
+  // Load current background mode on mount
+  useEffect(() => {
+    invoke<string>("get_background_mode").then(setBgMode).catch(() => {});
+  }, []);
+
+  const handleBgMode = async (mode: string) => {
+    try {
+      if (mode.startsWith("image:")) {
+        const id = parseInt(mode.slice(6), 10);
+        const path = await resolveResource(`backgrounds/${id}.jpg`);
+        await invoke("load_background_image", { id, jpegPath: path });
+      }
+      await invoke("set_background_mode", { mode });
+      setBgMode(mode);
+    } catch (e) {
+      console.error("set_background_mode error:", e);
+    }
+  };
+
+  // Close overflow/reaction picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (!target.closest(".overflow-menu, .reaction-picker, .control-btn")) {
+        setShowOverflow(false);
+        setShowReactionPicker(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -1328,6 +1446,79 @@ function CallView({
         )}
       </div>
 
+      {/* Reaction overlay */}
+      {reactions.length > 0 && (
+        <div className="reaction-overlay">
+          {reactions.map((r) => {
+            const emojiChar = REACTION_EMOJIS.find(([id]) => id === r.emoji)?.[1] ?? r.emoji;
+            return (
+              <div key={r.id} className="floating-reaction">
+                <span className="floating-reaction-emoji">{emojiChar}</span>
+                <span className="floating-reaction-name">{r.participantName}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Overflow menu */}
+      {showOverflow && (
+        <div className="overflow-menu">
+          <button
+            className={`overflow-item ${isHandRaised ? "overflow-item-active" : ""}`}
+            onClick={() => { onToggleHandRaise(); setShowOverflow(false); }}
+          >
+            <RiHand size={20} />
+            <span>{isHandRaised ? t("control.lowerHand") : t("control.raiseHand")}</span>
+          </button>
+          <button
+            className="overflow-item"
+            onClick={() => { setShowReactionPicker(!showReactionPicker); setShowOverflow(false); }}
+          >
+            <RiEmotionLine size={20} />
+            <span>{t("control.reaction") || "Reaction"}</span>
+          </button>
+          <button
+            className={`overflow-item ${showTranscription ? "overflow-item-active" : ""}`}
+            onClick={() => { onToggleTranscription(); setShowOverflow(false); }}
+          >
+            <RiApps2Line size={20} />
+            <span>{t("control.tools")}</span>
+          </button>
+          <button
+            className={`overflow-item ${showInfo ? "overflow-item-active" : ""}`}
+            onClick={() => { onToggleInfo(); setShowOverflow(false); }}
+          >
+            <RiInformationLine size={20} />
+            <span>{t("control.info")}</span>
+          </button>
+          <button
+            className="overflow-item"
+            onClick={() => { setShowOverflow(false); }}
+            title={t("control.settings") || "Settings"}
+          >
+            <RiSettings3Line size={20} />
+            <span>{t("control.settings") || "Settings"}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Reaction picker */}
+      {showReactionPicker && (
+        <div className="reaction-picker">
+          {REACTION_EMOJIS.map(([id, char]) => (
+            <button
+              key={id}
+              className="reaction-picker-btn"
+              onClick={() => handleSendReaction(id)}
+              title={id}
+            >
+              {char}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Control bar */}
       <div className="control-bar">
         {/* Mic group */}
@@ -1374,13 +1565,16 @@ function CallView({
           </button>
         </div>
 
-        {/* Hand raise */}
+        {/* Participants */}
         <button
-          className={`control-btn ${isHandRaised ? "control-btn-hand" : ""}`}
-          onClick={onToggleHandRaise}
-          title={isHandRaised ? t("control.lowerHand") : t("control.raiseHand")}
+          className={`control-btn ${showParticipants ? "control-btn-hand" : ""}`}
+          onClick={onToggleParticipants}
+          title={t("control.participants")}
         >
-          <RiHand size={20} />
+          <RiGroupLine size={20} />
+          <span className="unread-badge" style={{ background: "var(--accent)" }}>
+            {allParticipants.length}
+          </span>
         </button>
 
         {/* Chat */}
@@ -1397,34 +1591,13 @@ function CallView({
           )}
         </button>
 
-        {/* Participants */}
+        {/* More (overflow) */}
         <button
-          className={`control-btn ${showParticipants ? "control-btn-hand" : ""}`}
-          onClick={onToggleParticipants}
-          title={t("control.participants")}
+          className={`control-btn ${showOverflow ? "control-btn-hand" : ""}`}
+          onClick={() => { setShowOverflow(!showOverflow); setShowReactionPicker(false); }}
+          title={t("control.more") || "More"}
         >
-          <RiGroupLine size={20} />
-          <span className="unread-badge" style={{ background: "var(--accent)" }}>
-            {allParticipants.length}
-          </span>
-        </button>
-
-        {/* Tools */}
-        <button
-          className={`control-btn ${showTranscription ? "control-btn-hand" : ""}`}
-          onClick={onToggleTranscription}
-          title={t("control.tools")}
-        >
-          <RiApps2Line size={20} />
-        </button>
-
-        {/* Info */}
-        <button
-          className={`control-btn ${showInfo ? "control-btn-hand" : ""}`}
-          onClick={onToggleInfo}
-          title={t("control.info")}
-        >
-          <RiInformationLine size={20} />
+          <RiMore2Fill size={20} />
         </button>
 
         {/* Hangup */}
@@ -1478,7 +1651,7 @@ function CallView({
 
       {/* Camera device picker */}
       {showCamPicker && (
-        <div className="device-picker">
+        <div className="device-picker" style={{ minWidth: 300 }}>
           <div className="device-section">
             <div className="device-section-title">{t("device.camera")}</div>
             {videoInputs.map((d) => (
@@ -1497,6 +1670,38 @@ function CallView({
                 {t("device.noCamera")}
               </div>
             )}
+          </div>
+          <div className="device-section">
+            <div className="device-section-title">{t("settings.incall.background")}</div>
+            <div className="bg-mode-buttons">
+              <button
+                className={`bg-mode-btn ${bgMode === "off" ? "bg-mode-btn-active" : ""}`}
+                onClick={() => handleBgMode("off")}
+              >
+                {t("settings.incall.bgOff")}
+              </button>
+              <button
+                className={`bg-mode-btn ${bgMode === "blur" ? "bg-mode-btn-active" : ""}`}
+                onClick={() => handleBgMode("blur")}
+              >
+                {t("settings.incall.bgBlur")}
+              </button>
+            </div>
+            <div className="bg-image-grid">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((id) => (
+                <button
+                  key={id}
+                  className={`bg-image-thumb ${bgMode === `image:${id}` ? "bg-image-thumb-active" : ""}`}
+                  onClick={() => handleBgMode(`image:${id}`)}
+                >
+                  <img
+                    src={`/backgrounds/thumbnails/${id}.jpg`}
+                    alt={`Background ${id}`}
+                    draggable={false}
+                  />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1746,6 +1951,11 @@ export default function App() {
     // Load meet instances for OIDC
     invoke<string[]>("get_meet_instances")
       .then(setMeetInstances)
+      .catch(() => {});
+
+    // Load ONNX segmentation model for background blur
+    resolveResource("models/selfie_segmentation.onnx")
+      .then((path) => invoke("load_blur_model", { modelPath: path }))
       .catch(() => {});
   }, []);
 
