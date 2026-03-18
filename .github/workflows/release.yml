@@ -59,6 +59,38 @@ jobs:
             libgbm-dev \
             rpm
 
+      - name: Install ONNX Runtime
+        run: |
+          # Download and install ONNX Runtime for pkg-config
+          ONNX_VERSION="1.21.1"
+          curl -sL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz" -o onnxruntime.tgz
+          sudo mkdir -p /usr/local/onnxruntime
+          sudo tar -xzf onnxruntime.tgz -C /usr/local/onnxruntime --strip-components=1
+          rm onnxruntime.tgz
+
+          # Create pkg-config file
+          sudo mkdir -p /usr/local/lib/pkgconfig
+          sudo tee /usr/local/lib/pkgconfig/libonnxruntime.pc << 'EOF'
+          prefix=/usr/local/onnxruntime
+          exec_prefix=${prefix}
+          libdir=${prefix}/lib
+          includedir=${prefix}/include
+
+          Name: onnxruntime
+          Description: ONNX Runtime
+          Version: 1.21.1
+          Libs: -L${libdir} -lonnxruntime
+          Cflags: -I${includedir}
+          EOF
+
+          # Add to library path
+          echo "/usr/local/onnxruntime/lib" | sudo tee /etc/ld.so.conf.d/onnxruntime.conf
+          sudo ldconfig
+
+          # Set PKG_CONFIG_PATH for subsequent steps
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/usr/local/onnxruntime/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
