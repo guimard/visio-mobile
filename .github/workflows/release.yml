@@ -107,12 +107,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Note: x86_64-apple-darwin is not supported by ort-sys (ONNX Runtime)
           - arch: arm64
             runner: macos-15
             rust-target: aarch64-apple-darwin
-          - arch: x64
-            runner: macos-latest
-            rust-target: x86_64-apple-darwin
 
     steps:
       - uses: actions/checkout@v4
