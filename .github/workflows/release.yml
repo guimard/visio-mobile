@@ -134,8 +134,8 @@ jobs:
                 gcc \
                 gcc-c++ \
                 make \
-                pkg-config \
-                webkit2gtk4.1-devel \
+                pkgconf-pkg-config \
+                webkit2gtk3-devel \
                 libappindicator-gtk3-devel \
                 librsvg2-devel \
                 patchelf \
@@ -144,7 +144,7 @@ jobs:
                 pulseaudio-libs-devel \
                 alsa-lib-devel \
                 pipewire-devel \
-                libgbm-devel \
+                mesa-libgbm-devel \
                 openssl-devel \
                 file \
                 nodejs \
