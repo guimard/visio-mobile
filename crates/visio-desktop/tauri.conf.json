@@ -31,6 +31,14 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "Video",
+    "shortDescription": "Video conferencing application",
+    "longDescription": "Visio Mobile is a cross-platform video conferencing application with support for virtual backgrounds and screen sharing.",
+    "linux": {
+      "appId": "io.visio.desktop",
+      "section": "net",
+      "priority": "optional"
+    },
     "resources": {
       "../../i18n/*.json": "i18n/",
       "../../assets/backgrounds/*.jpg": "backgrounds/",
