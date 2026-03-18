@@ -2541,12 +2541,12 @@ export default function App() {
 
   // ---- Device enumeration -------------------------------------------------
   // WORKAROUND: Defer device enumeration to avoid USB blocking at startup.
-  // Only enumerate when settings view is opened.
+  // Only enumerate when settings modal is opened.
   const [devicesEnumerated, setDevicesEnumerated] = useState(false);
 
   useEffect(() => {
-    // Only enumerate when in settings view to avoid USB blocking on some systems
-    if (view !== "settings" || devicesEnumerated) return;
+    // Only enumerate when settings modal is open to avoid USB blocking on some systems
+    if (!showSettings || devicesEnumerated) return;
 
     const enumerate = async () => {
       try {

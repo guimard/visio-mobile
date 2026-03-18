@@ -111,7 +111,7 @@ jobs:
             runner: macos-15
             rust-target: aarch64-apple-darwin
           - arch: x64
-            runner: macos-13
+            runner: macos-latest
             rust-target: x86_64-apple-darwin
 
     steps:
