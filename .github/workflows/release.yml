@@ -146,9 +146,11 @@ jobs:
                 pipewire-devel \
                 mesa-libgbm-devel \
                 openssl-devel \
-                file \
-                nodejs \
-                npm
+                file
+
+              # Install Node.js 22 via NodeSource (system nodejs is too old)
+              curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -
+              dnf install -y nodejs
 
               # Install ONNX Runtime manually (not in EPEL)
               ONNX_VERSION="1.24.4"
