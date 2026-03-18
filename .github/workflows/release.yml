@@ -19,28 +19,213 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
-    name: Build Linux (${{ matrix.arch }})
-    runs-on: ubuntu-24.04
+  build-deb:
+    name: Build DEB (${{ matrix.codename }})
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
-            rust-target: x86_64-unknown-linux-gnu
+          - codename: trixie
+            container: debian:trixie
+          - codename: testing
+            container: debian:testing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in Docker container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            ${{ matrix.container }} \
+            bash -c '
+              set -ex
+
+              # Install build dependencies
+              apt-get update
+              apt-get install -y \
+                curl \
+                build-essential \
+                pkg-config \
+                libwebkit2gtk-4.1-dev \
+                libappindicator3-dev \
+                librsvg2-dev \
+                patchelf \
+                libglib2.0-dev \
+                libva-dev \
+                libpulse-dev \
+                libasound2-dev \
+                libpipewire-0.3-dev \
+                libspa-0.2-dev \
+                libgbm-dev \
+                libonnxruntime-dev \
+                libssl-dev \
+                file \
+                nodejs \
+                npm
+
+              # Install Rust
+              curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              source "$HOME/.cargo/env"
+
+              # Build frontend
+              cd crates/visio-desktop/frontend
+              npm ci
+              npm run build
+              cd ../../..
+
+              # Install Tauri CLI and build
+              cargo install tauri-cli --version "^2" --locked
+              cd crates/visio-desktop
+              cargo tauri build --bundles deb
+
+              # Copy artifacts
+              mkdir -p /workspace/packages
+              cp /workspace/target/release/bundle/deb/*.deb /workspace/packages/
+            '
+
+      - name: Rename packages
+        run: |
+          cd packages
+          for f in *.deb; do
+            mv "$f" "${f%.deb}_${{ matrix.codename }}.deb"
+          done
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.codename }}
+          path: packages/*.deb
+          retention-days: 7
+
+  build-rpm:
+    name: Build RPM (${{ matrix.codename }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - codename: el9
+            container: rockylinux:9
+          - codename: el10
+            container: quay.io/rockylinux/rockylinux:10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in Docker container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            ${{ matrix.container }} \
+            bash -c '
+              set -ex
+
+              # Enable EPEL and CRB/PowerTools
+              dnf install -y epel-release dnf-plugins-core || true
+              dnf config-manager --set-enabled crb 2>/dev/null || dnf config-manager --set-enabled powertools 2>/dev/null || true
+
+              # Install build dependencies
+              dnf install -y --allowerasing \
+                curl \
+                gcc \
+                gcc-c++ \
+                make \
+                pkg-config \
+                webkit2gtk4.1-devel \
+                libappindicator-gtk3-devel \
+                librsvg2-devel \
+                patchelf \
+                glib2-devel \
+                libva-devel \
+                pulseaudio-libs-devel \
+                alsa-lib-devel \
+                pipewire-devel \
+                libgbm-devel \
+                openssl-devel \
+                file \
+                nodejs \
+                npm
+
+              # Install ONNX Runtime manually (not in EPEL)
+              ONNX_VERSION="1.24.4"
+              curl -sL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz" -o /tmp/onnxruntime.tgz
+              mkdir -p /usr/local/onnxruntime
+              tar -xzf /tmp/onnxruntime.tgz -C /usr/local/onnxruntime --strip-components=1
+              rm /tmp/onnxruntime.tgz
+
+              # Create pkg-config file
+              mkdir -p /usr/local/lib/pkgconfig
+              cat > /usr/local/lib/pkgconfig/libonnxruntime.pc << EOF
+          prefix=/usr/local/onnxruntime
+          exec_prefix=\${prefix}
+          libdir=\${prefix}/lib
+          includedir=\${prefix}/include
+
+          Name: onnxruntime
+          Description: ONNX Runtime
+          Version: ${ONNX_VERSION}
+          Libs: -L\${libdir} -lonnxruntime
+          Cflags: -I\${includedir}
+          EOF
+
+              echo "/usr/local/onnxruntime/lib" > /etc/ld.so.conf.d/onnxruntime.conf
+              ldconfig
+
+              export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+              export LD_LIBRARY_PATH="/usr/local/onnxruntime/lib:$LD_LIBRARY_PATH"
+
+              # Install Rust
+              curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              source "$HOME/.cargo/env"
+
+              # Build frontend
+              cd crates/visio-desktop/frontend
+              npm ci
+              npm run build
+              cd ../../..
+
+              # Install Tauri CLI and build
+              cargo install tauri-cli --version "^2" --locked
+              cd crates/visio-desktop
+              cargo tauri build --bundles rpm
+
+              # Copy artifacts
+              mkdir -p /workspace/packages
+              cp /workspace/target/release/bundle/rpm/*.rpm /workspace/packages/
+            '
+
+      - name: Rename packages
+        run: |
+          cd packages
+          for f in *.rpm; do
+            mv "$f" "${f%.rpm}.${{ matrix.codename }}.rpm"
+          done
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.codename }}
+          path: packages/*.rpm
+          retention-days: 7
+
+  build-appimage:
+    name: Build AppImage
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-target }}
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          key: release-linux-${{ matrix.arch }}
+          key: release-appimage
 
       - name: Install Linux dependencies
         run: |
@@ -56,19 +241,16 @@ jobs:
             libasound2-dev \
             libpipewire-0.3-dev \
             libspa-0.2-dev \
-            libgbm-dev \
-            rpm
+            libgbm-dev
 
       - name: Install ONNX Runtime
         run: |
-          # Download and install ONNX Runtime for pkg-config
           ONNX_VERSION="1.24.4"
           curl -sL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz" -o onnxruntime.tgz
           sudo mkdir -p /usr/local/onnxruntime
           sudo tar -xzf onnxruntime.tgz -C /usr/local/onnxruntime --strip-components=1
           rm onnxruntime.tgz
 
-          # Create pkg-config file
           sudo mkdir -p /usr/local/lib/pkgconfig
           sudo tee /usr/local/lib/pkgconfig/libonnxruntime.pc << 'EOF'
           prefix=/usr/local/onnxruntime
@@ -83,11 +265,9 @@ jobs:
           Cflags: -I${includedir}
           EOF
 
-          # Add to library path
           echo "/usr/local/onnxruntime/lib" | sudo tee /etc/ld.so.conf.d/onnxruntime.conf
           sudo ldconfig
 
-          # Set PKG_CONFIG_PATH for subsequent steps
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "LD_LIBRARY_PATH=/usr/local/onnxruntime/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
@@ -107,29 +287,15 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
-      - name: Build Tauri app (all Linux bundles)
+      - name: Build Tauri app
         working-directory: crates/visio-desktop
-        run: cargo tauri build --target ${{ matrix.rust-target }}
+        run: cargo tauri build --bundles appimage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: linux-appimage-${{ matrix.arch }}
-          path: target/${{ matrix.rust-target }}/release/bundle/appimage/*.AppImage
-          retention-days: 7
-
-      - name: Upload DEB
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-deb-${{ matrix.arch }}
-          path: target/${{ matrix.rust-target }}/release/bundle/deb/*.deb
-          retention-days: 7
-
-      - name: Upload RPM
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-rpm-${{ matrix.arch }}
-          path: target/${{ matrix.rust-target }}/release/bundle/rpm/*.rpm
+          name: appimage
+          path: target/release/bundle/appimage/*.AppImage
           retention-days: 7
 
   build-macos:
@@ -253,7 +419,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-linux, build-macos, build-windows]
+    needs: [build-deb, build-rpm, build-appimage, build-macos, build-windows]
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -267,22 +433,15 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
 
-          # Linux packages
+          # All packages
           find artifacts -name "*.AppImage" -exec cp {} release/ \;
           find artifacts -name "*.deb" -exec cp {} release/ \;
           find artifacts -name "*.rpm" -exec cp {} release/ \;
-
-          # macOS packages
           find artifacts -name "*.dmg" -exec cp {} release/ \;
-
-          # Windows packages
           find artifacts -name "*.msi" -exec cp {} release/ \;
           find artifacts -name "*.exe" -exec cp {} release/ \;
 
-          # List all files
           echo "Release files:"
           ls -la release/
 
@@ -298,18 +457,18 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
 
-          # Generate release notes
           cat > RELEASE_NOTES.md << 'EOF'
           ## Downloads
 
           ### Linux
           - **AppImage** - Universal Linux package (recommended)
-          - **DEB** - For Debian, Ubuntu, and derivatives
-          - **RPM** - For Fedora, RHEL, Rocky Linux, and derivatives
+          - **DEB (trixie)** - Debian 13 stable
+          - **DEB (testing)** - Debian testing
+          - **RPM (el9)** - Rocky Linux / RHEL / AlmaLinux 9
+          - **RPM (el10)** - Rocky Linux / RHEL / AlmaLinux 10
 
           ### macOS
           - **DMG (arm64)** - For Apple Silicon Macs (M1/M2/M3)
-          - **DMG (x64)** - For Intel Macs
 
           ### Windows
           - **MSI** - Windows Installer package
