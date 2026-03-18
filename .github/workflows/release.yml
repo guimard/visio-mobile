@@ -62,6 +62,8 @@ jobs:
                 libgbm-dev \
                 libonnxruntime-dev \
                 libssl-dev \
+                libclang-dev \
+                clang \
                 file \
                 nodejs \
                 npm
@@ -146,6 +148,8 @@ jobs:
                 pipewire-devel \
                 mesa-libgbm-devel \
                 openssl-devel \
+                clang \
+                clang-devel \
                 file
 
               # Install Node.js 22 via NodeSource (system nodejs is too old)
