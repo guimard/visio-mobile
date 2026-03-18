@@ -62,7 +62,7 @@ jobs:
       - name: Install ONNX Runtime
         run: |
           # Download and install ONNX Runtime for pkg-config
-          ONNX_VERSION="1.21.1"
+          ONNX_VERSION="1.24.4"
           curl -sL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz" -o onnxruntime.tgz
           sudo mkdir -p /usr/local/onnxruntime
           sudo tar -xzf onnxruntime.tgz -C /usr/local/onnxruntime --strip-components=1
@@ -78,7 +78,7 @@ jobs:
 
           Name: onnxruntime
           Description: ONNX Runtime
-          Version: 1.21.1
+          Version: 1.24.4
           Libs: -L${libdir} -lonnxruntime
           Cflags: -I${includedir}
           EOF
