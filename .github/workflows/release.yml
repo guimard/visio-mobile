@@ -110,8 +110,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - codename: el9
-            container: rockylinux:9
+          # Note: EL9 is not supported (requires glib >= 2.70 and webkit2gtk-4.1)
           - codename: el10
             container: quay.io/rockylinux/rockylinux:10
 
@@ -138,7 +137,7 @@ jobs:
                 gcc-c++ \
                 make \
                 pkgconf-pkg-config \
-                webkit2gtk3-devel \
+                webkit2gtk4.1-devel \
                 libappindicator-gtk3-devel \
                 librsvg2-devel \
                 patchelf \
